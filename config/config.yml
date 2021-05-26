@@ -1,0 +1,12 @@
+port: 8000
+
+auth:
+  hash_salt: "hash_salt"
+  signing_key: "signing_key"
+  token_ttl: 86400
+
+mysql:
+  uri: "localhost:7001"
+  name: "testdb"
+  user: "root"
+  password: "toor"
