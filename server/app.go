@@ -7,6 +7,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"github.com/kosipov/students/auth"
+	"github.com/kosipov/students/group"
 	"github.com/spf13/viper"
 	"log"
 	"net/http"
@@ -17,18 +18,23 @@ import (
 	authhttp "github.com/kosipov/students/auth/delivery/http"
 	authgorm "github.com/kosipov/students/auth/repository/gorm"
 	"github.com/kosipov/students/auth/usecase"
+	grouphttp "github.com/kosipov/students/group/http"
+	groupgorm "github.com/kosipov/students/group/repository/gorm"
+	groupusecase "github.com/kosipov/students/group/usecase"
 )
 
 type App struct {
 	httpServer *http.Server
 
-	authUC auth.UseCase
+	authUC  auth.UseCase
+	groupUC group.UseCase
 }
 
 func NewApp() *App {
 	db := initDB()
 
 	userRepo := authgorm.NewUserRepository(db)
+	groupRepo := groupgorm.NewGroupRepository(db)
 
 	return &App{
 		authUC: usecase.NewAuthUseCase(
@@ -37,6 +43,8 @@ func NewApp() *App {
 			[]byte(viper.GetString("auth.signing_key")),
 			viper.GetDuration("auth.token_ttl"),
 		),
+		groupUC: groupusecase.NewGroupUseCase(
+			groupRepo),
 	}
 }
 
@@ -51,6 +59,7 @@ func (a *App) Run(port string) error {
 	// Set up http handlers
 	// SignUp/SignIn endpoints
 	authhttp.RegisterHTTPEndpoints(router, a.authUC)
+	grouphttp.RegisterHTTPEndpoints(router, a.groupUC)
 
 	/*	// API endpoints
 		authMiddleware := authhttp.NewAuthMiddleware(a.authUC)
