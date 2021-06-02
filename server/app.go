@@ -100,10 +100,10 @@ func (a *App) Run(port string) error {
 }
 
 func initDB() *gorm.DB {
-	user := viper.GetString("mysql.user")
-	pass := viper.GetString("mysql.password")
-	host := viper.GetString("mysql.uri")
-	dbname := viper.GetString("mysql.name")
+	user := viper.GetString("mysql_prod.user")
+	pass := viper.GetString("mysql_prod.password")
+	host := viper.GetString("mysql_prod.uri")
+	dbname := viper.GetString("mysql_prod.name")
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s", user, pass, host, dbname)
 
 	client, err := gorm.Open("mysql", dsn)

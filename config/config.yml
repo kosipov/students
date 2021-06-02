@@ -10,3 +10,9 @@ mysql:
   name: "testdb"
   user: "root"
   password: "toor"
+
+mysql_prod:
+  uri: "91.236.136.179:3306"
+  name: "kosipov_go_test"
+  user: "kosipov_kosipov_go_test"
+  password: "jH9gP2hM5duO9q"
