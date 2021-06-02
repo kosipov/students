@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/kosipov/students/config"
 	"github.com/kosipov/students/server"
-	"github.com/spf13/viper"
 	"log"
+	"os"
 )
 
 func main() {
@@ -13,8 +13,12 @@ func main() {
 	}
 
 	app := server.NewApp()
+	port := os.Getenv("PORT")
+	if len(port) == 0 {
+		port = "8080"
+	}
 
-	if err := app.Run(viper.GetString("port")); err != nil {
+	if err := app.Run(port); err != nil {
 		log.Fatalf("%s", err.Error())
 	}
 }
