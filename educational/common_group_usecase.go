@@ -1,4 +1,4 @@
-package group
+package educational
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 const CtxGroupKey = "group"
 
-type UseCase interface {
+type CommonGroupUseCase interface {
 	GetAllGroups(ctx context.Context) (*[]models.Group, error)
+	GetGroupById(ctx context.Context, id int) (*models.Group, error)
 }

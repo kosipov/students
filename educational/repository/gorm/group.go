@@ -16,6 +16,12 @@ func NewGroupRepository(db *gorm.DB) *GroupRepository {
 
 func (g *GroupRepository) GetGroups(ctx context.Context) (*[]models.Group, error) {
 	var groups []models.Group
-	result := g.db.Find(&groups)
+	result := g.db.Preload("Subjects.SubjectObjects").Find(&groups)
 	return &groups, result.Error
+}
+
+func (g *GroupRepository) GetGroupById(ctx context.Context, id int) (*models.Group, error) {
+	var group models.Group
+	result := g.db.First(&group, id)
+	return &group, result.Error
 }

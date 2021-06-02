@@ -1,8 +1,10 @@
 package models
 
 type SubjectObject struct {
-	Id        uint16
+	ID        int
 	Name      string
-	SubjectId uint16
+	Comment   string
+	Href      string
+	SubjectId int
 	Subject   Subject
 }

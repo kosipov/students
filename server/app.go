@@ -7,7 +7,8 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"github.com/kosipov/students/auth"
-	"github.com/kosipov/students/group"
+	"github.com/kosipov/students/educational"
+	"github.com/kosipov/students/models"
 	"github.com/spf13/viper"
 	"log"
 	"net/http"
@@ -18,23 +19,25 @@ import (
 	authhttp "github.com/kosipov/students/auth/delivery/http"
 	authgorm "github.com/kosipov/students/auth/repository/gorm"
 	"github.com/kosipov/students/auth/usecase"
-	grouphttp "github.com/kosipov/students/group/http"
-	groupgorm "github.com/kosipov/students/group/repository/gorm"
-	groupusecase "github.com/kosipov/students/group/usecase"
+	educationalhttp "github.com/kosipov/students/educational/delivery/http"
+	educationalgorm "github.com/kosipov/students/educational/repository/gorm"
+	educationalusecase "github.com/kosipov/students/educational/usecase"
 )
 
 type App struct {
 	httpServer *http.Server
 
-	authUC  auth.UseCase
-	groupUC group.UseCase
+	authUC    auth.UseCase
+	groupUC   educational.CommonGroupUseCase
+	subjectUC educational.CommonSubjectUseCase
 }
 
 func NewApp() *App {
 	db := initDB()
 
 	userRepo := authgorm.NewUserRepository(db)
-	groupRepo := groupgorm.NewGroupRepository(db)
+	groupRepo := educationalgorm.NewGroupRepository(db)
+	subjectRepo := educationalgorm.NewSubjectRepository(db)
 
 	return &App{
 		authUC: usecase.NewAuthUseCase(
@@ -43,8 +46,9 @@ func NewApp() *App {
 			[]byte(viper.GetString("auth.signing_key")),
 			viper.GetDuration("auth.token_ttl"),
 		),
-		groupUC: groupusecase.NewGroupUseCase(
+		groupUC: educationalusecase.NewGroupUseCase(
 			groupRepo),
+		subjectUC: educationalusecase.NewSubjectUseCase(subjectRepo),
 	}
 }
 
@@ -55,11 +59,13 @@ func (a *App) Run(port string) error {
 		gin.Recovery(),
 		gin.Logger(),
 	)
+	router.LoadHTMLGlob("templates/*.html")
+	router.Static("/dist", "templates/dist")
 
 	// Set up http handlers
 	// SignUp/SignIn endpoints
 	authhttp.RegisterHTTPEndpoints(router, a.authUC)
-	grouphttp.RegisterHTTPEndpoints(router, a.groupUC)
+	educationalhttp.RegisterHTTPEndpoints(router, a.subjectUC, a.groupUC)
 
 	/*	// API endpoints
 		authMiddleware := authhttp.NewAuthMiddleware(a.authUC)
@@ -104,6 +110,13 @@ func initDB() *gorm.DB {
 	if err != nil {
 		log.Fatalf("Error occured while establishing connection to gorm")
 	}
+
+	client.AutoMigrate(
+		&models.User{},
+		&models.Group{},
+		&models.Subject{},
+		&models.SubjectObject{},
+	)
 
 	return client
 }
