@@ -16,3 +16,4 @@ mysql_prod:
   name: "kosipov_go_test"
   user: "kosipov_kosipov_go_test"
   password: "jH9gP2hM5duO9q"
+
