@@ -59,7 +59,7 @@ func (a *App) Run(port string) error {
 		gin.Recovery(),
 		gin.Logger(),
 	)
-	router.LoadHTMLGlob("templates/*.html")
+	router.LoadHTMLGlob("templates/**/*.html")
 	router.Static("/dist", "templates/dist")
 
 	// Set up http handlers

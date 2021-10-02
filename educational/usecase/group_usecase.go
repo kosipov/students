@@ -21,3 +21,8 @@ func (g *GroupUseCase) GetAllGroups(ctx context.Context) (*[]models.Group, error
 func (g *GroupUseCase) GetGroupById(ctx context.Context, id int) (*models.Group, error) {
 	return g.groupRepo.GetGroupById(ctx, id)
 }
+
+func (g *GroupUseCase) CreateGroup(ctx context.Context, groupName string) error {
+	group := &models.Group{GroupName: groupName}
+	return g.groupRepo.CreateGroup(ctx, group)
+}

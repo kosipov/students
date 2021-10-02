@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+{{ define "admin/header.html" }}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>kosipov admin</title>
+
+  <!-- Bootstrap core CSS -->
+  <link rel='stylesheet' href='/dist/style.css'>
+  <script type="text/javascript" src="/dist/bundle.js"></script>
+
+  <!-- Favicons -->
+  <meta name="theme-color" content="#7952b3">
+</head>
+
+<body>
+<nav class="navbar navbar-expand-sm navbar-dark bg-dark">
+  <a class="navbar-brand" href="/admin/groups">{{ .userName }}</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExample03" aria-controls="navbarsExample03" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navbarsExample03">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item active">
+        <a class="nav-link" href="/admin/groups">Группы</a>
+      </li>
+    </ul>
+    <div class="text-end">
+      <a href="/auth/sign-out">
+        <button type="button" class="btn btn-warning">Sign-out</button>
+      </a>
+    </div>
+  </div>
+</nav>
+{{ if .message }}
+<div class="alert alert-info" role="alert">
+  {{ .message }}
+</div>
+{{ end }}
+
+{{ end }}

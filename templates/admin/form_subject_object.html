@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+
+{{ define "admin/form_subject_object.html" }}
+
+{{ template "admin/header.html" . }}
+
+<main role="main" class="container">
+  <div class="my-3 p-3 bg-white rounded shadow-sm">
+    <form enctype="multipart/form-data" method="post" action="/admin/subject/{{ .subjectId }}/subject_object/create">
+      <div class="mb-3">
+        <label for="subject_object_name" class="form-label">Наименование задания</label>
+        <input type="text" class="form-control" id="subject_object_name" name="subject_object_name">
+      </div>
+      <div class="mb-3">
+        <label for="subject_object_href" class="form-label">Ссылка на задание</label>
+        <input type="url" class="form-control" id="subject_object_href" name="subject_object_href">
+      </div>
+      <input type="hidden" class="form-control" id="subject_id" value="{{ .subjectId }}" name="subject_id">
+      <button type="submit" class="btn btn-primary">Создать</button>
+    </form>
+  </div>
+</main>
+
+</body>
+
+{{ end }}
+
+</html>

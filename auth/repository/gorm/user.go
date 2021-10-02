@@ -23,7 +23,7 @@ func (u *UserRepository) GetUserByEmailAndPass(ctx context.Context, username, pa
 
 	if err := u.db.Where(&models.User{Username: username, Password: password}).First(&user).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
-			return nil, nil
+			return nil, err
 		}
 		return nil, err
 	}

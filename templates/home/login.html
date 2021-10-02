@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+
+{{ define "home/login.html" }}
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel='stylesheet' href='/dist/style.css'>
+    <script type="text/javascript" src="/dist/bundle.js"></script>
+    <title>Студентам</title>
+</head>
+
+<body class="text-center">
+{{ if .message }}
+    <div class="alert alert-info" role="alert">
+        {{ .message }}
+    </div>
+{{ end }}
+<form enctype="multipart/form-data" class="form-signin" action="/auth/sign-in" method="post">
+    <h1 class="h3 mb-3 font-weight-normal">Добро пожаловать</h1>
+    <label for="login" class="sr-only">Login</label>
+    <input type="text" id="login" name="login" class="form-control" placeholder="Login" required="" autofocus="">
+    <label for="password" class="sr-only">Password</label>
+    <input type="password" id="password" name="password" class="form-control" placeholder="Password" required="">
+    <button class="btn btn-lg btn-primary btn-block" type="submit">Вход</button>
+</form>
+
+</body>
+
+{{ end }}
+
+</html>

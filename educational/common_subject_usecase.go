@@ -12,4 +12,7 @@ type CommonSubjectUseCase interface {
 	SubjectObjectListFromSubject(ctx context.Context, subject *models.Subject) (*[]models.SubjectObject, error)
 	GetSubjectById(ctx context.Context, id int) (*models.Subject, error)
 	GetAllSubject(ctx context.Context) (*[]models.Subject, error)
+	CreateSubject(ctx context.Context, name string, groupId int) error
+	CreateSubjectObject(ctx context.Context, name string, subjectId int, href string) (*models.SubjectObject, error)
+	DeleteSubjectObject(ctx context.Context, subjectObjectId int) error
 }

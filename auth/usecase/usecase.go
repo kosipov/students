@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"github.com/dgrijalva/jwt-go/v4"
+	"github.com/jinzhu/gorm"
 	"github.com/kosipov/students/auth"
 	"github.com/kosipov/students/models"
 	"time"
@@ -48,27 +49,18 @@ func (a *AuthUseCase) SignUp(ctx context.Context, username, password string) err
 	return a.userRepo.CreateUser(ctx, user)
 }
 
-func (a *AuthUseCase) SignIn(ctx context.Context, username, password string) (string, error) {
+func (a *AuthUseCase) SignIn(ctx context.Context, username, password string) (*models.User, error) {
 	pwd := sha1.New()
 	pwd.Write([]byte(password))
 	pwd.Write([]byte(a.hashSalt))
 	password = fmt.Sprintf("%x", pwd.Sum(nil))
 
 	user, err := a.userRepo.GetUserByEmailAndPass(ctx, username, password)
-	if err != nil {
-		return "", auth.ErrUserNotFound
+	if gorm.IsRecordNotFoundError(err) {
+		return nil, auth.ErrUserNotFound
 	}
 
-	claims := AuthClaims{
-		User: user,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: jwt.At(time.Now().Add(a.expireDuration)),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	return token.SignedString(a.signingKey)
+	return user, err
 }
 
 func (a *AuthUseCase) ParseToken(ctx context.Context, accessToken string) (*models.User, error) {

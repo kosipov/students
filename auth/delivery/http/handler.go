@@ -1,9 +1,11 @@
 package http
 
 import (
+	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/kosipov/students/auth"
 	"net/http"
+	"strings"
 )
 
 type Handler struct {
@@ -16,53 +18,61 @@ func NewHandler(useCase auth.UseCase) *Handler {
 	}
 }
 
-type signInput struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type signUpOutput struct {
-	Username string `json:"username"`
-}
-
-func (h *Handler) SignUp(c *gin.Context) {
-	inp := new(signInput)
-
-	if err := c.BindJSON(inp); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	if err := h.useCase.SignUp(c.Request.Context(), inp.Username, inp.Password); err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	c.JSON(http.StatusOK, signUpOutput{Username: inp.Username})
-}
-
-type signInResponse struct {
-	Token string `json:"token"`
-}
-
 func (h *Handler) SignIn(c *gin.Context) {
-	inp := new(signInput)
+	session := sessions.Default(c)
+	login := c.PostForm("login")
+	password := c.PostForm("password")
 
-	if err := c.BindJSON(inp); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
+	if strings.Trim(login, " ") == "" || strings.Trim(password, " ") == "" {
+		c.HTML(http.StatusUnprocessableEntity, "home/login.html", gin.H{
+			"message": "Пустой логин или пароль",
+		})
 		return
 	}
 
-	token, err := h.useCase.SignIn(c.Request.Context(), inp.Username, inp.Password)
-	if err != nil {
+	user, err := h.useCase.SignIn(c.Request.Context(), login, password)
+	if err != nil || user == nil {
 		if err == auth.ErrUserNotFound {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			c.HTML(http.StatusUnauthorized, "home/login.html", gin.H{
+				"message": "Неверный логин или пароль",
+			})
 			return
 		}
 
-		c.AbortWithStatus(http.StatusInternalServerError)
+		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
+			"message": "Неизвестная ошибка!",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, signInResponse{Token: token})
+	session.Set("user_id", user.Id)
+	session.Set("user_name", user.Username)
+
+	if err := session.Save(); err != nil {
+		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
+			"message": "Неизвестная ошибка!",
+		})
+		return
+	}
+
+	c.Redirect(http.StatusMovedPermanently, "/admin/groups")
+}
+
+func (h *Handler) SignOut(c *gin.Context) {
+	session := sessions.Default(c)
+	userId := session.Get("user_id")
+	if userId == nil {
+		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
+			"message": "Некорректная сессия",
+		})
+	}
+	session.Clear()
+
+	if err := session.Save(); err != nil {
+		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
+			"message": "Ошибка выхода",
+		})
+	}
+
+	c.Redirect(http.StatusTemporaryRedirect, "/auth/sign-in")
 }

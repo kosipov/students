@@ -25,3 +25,8 @@ func (g *GroupRepository) GetGroupById(ctx context.Context, id int) (*models.Gro
 	result := g.db.First(&group, id)
 	return &group, result.Error
 }
+
+func (g *GroupRepository) CreateGroup(ctx context.Context, group *models.Group) error {
+	newGroup := g.db.Create(group)
+	return newGroup.Error
+}

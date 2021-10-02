@@ -28,7 +28,7 @@ func (subjectRepo *SubjectRepository) GetSubjectObjectsBySubject(ctx context.Con
 
 func (subjectRepo *SubjectRepository) GetSubject(ctx context.Context, id int) (*models.Subject, error) {
 	var subject models.Subject
-	result := subjectRepo.db.First(&subject, id)
+	result := subjectRepo.db.Limit(1).Find(&subject, id)
 	return &subject, result.Error
 }
 
@@ -36,4 +36,24 @@ func (subjectRepo *SubjectRepository) GetSubjects(ctx context.Context) (*[]model
 	var subjects []models.Subject
 	result := subjectRepo.db.Preload("Group").Find(&subjects)
 	return &subjects, result.Error
+}
+
+func (subjectRepo *SubjectRepository) CreateSubject(ctx context.Context, subject *models.Subject) error {
+	result := subjectRepo.db.Create(subject)
+	return result.Error
+}
+
+func (subjectRepo *SubjectRepository) CreateSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
+	result := subjectRepo.db.Create(subjectObject)
+	return result.Error
+}
+
+func (subjectRepo *SubjectRepository) GetSubjectObject(ctx context.Context, subjectObjectId int) (*models.SubjectObject, error) {
+	var subjectObject models.SubjectObject
+	result := subjectRepo.db.Limit(1).Find(&subjectObject, subjectObjectId)
+	return &subjectObject, result.Error
+}
+
+func (subjectRepo *SubjectRepository) DeleteSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
+	return subjectRepo.db.Delete(&subjectObject).Error
 }
