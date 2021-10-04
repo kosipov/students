@@ -122,8 +122,9 @@ func initDB() *gorm.DB {
 }
 
 func viperEnvVariable(key string) string {
-
-	viper.SetConfigFile(".env")
+	if os.Getenv("GIN_MODE") != "release" {
+		viper.SetConfigFile(".env")
+	}
 	viper.AllowEmptyEnv(true)
 	viper.AutomaticEnv()
 
