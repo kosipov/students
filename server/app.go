@@ -100,10 +100,10 @@ func (a *App) Run(port string) error {
 }
 
 func initDB() *gorm.DB {
-	user := viper.GetString("mysql_prod.user")
-	pass := viper.GetString("mysql_prod.password")
-	host := viper.GetString("mysql_prod.uri")
-	dbname := viper.GetString("mysql_prod.name")
+	user := viperEnvVariable("MYSQL_USER")
+	pass := viperEnvVariable("MYSQL_PASSWORD")
+	host := viperEnvVariable("MYSQL_HOST")
+	dbname := viperEnvVariable("MYSQL_DBNAME")
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s", user, pass, host, dbname)
 
 	client, err := gorm.Open("mysql", dsn)
@@ -119,4 +119,25 @@ func initDB() *gorm.DB {
 	)
 
 	return client
+}
+
+func viperEnvVariable(key string) string {
+
+	viper.SetConfigFile(".env")
+	viper.AllowEmptyEnv(true)
+	viper.AutomaticEnv()
+
+	err := viper.ReadInConfig()
+
+	if err != nil {
+		log.Fatalf("Error while reading config file %s", err)
+	}
+
+	value, ok := viper.Get(key).(string)
+
+	if !ok {
+		log.Fatalf("Invalid type assertion")
+	}
+
+	return value
 }

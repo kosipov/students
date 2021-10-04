@@ -14,11 +14,19 @@ func NewSubjectUseCase(subjectRepo educational.CommonSubjectRepository) *Subject
 	return &SubjectUseCase{subjectRepo: subjectRepo}
 }
 
-func (subjectUseCase *SubjectUseCase) GetSubjectByGroup(ctx context.Context, group *models.Group) (*[]models.Subject, error) {
+func (subjectUseCase *SubjectUseCase) GetSubjectsByGroup(ctx context.Context, groupId int) (*[]models.Subject, error) {
+	group, err := subjectUseCase.subjectRepo.GetGroup(ctx, groupId)
+	if err != nil {
+		return nil, err
+	}
 	return subjectUseCase.subjectRepo.GetSubjectsByGroup(ctx, group)
 }
 
-func (subjectUseCase *SubjectUseCase) SubjectObjectListFromSubject(ctx context.Context, subject *models.Subject) (*[]models.SubjectObject, error) {
+func (subjectUseCase *SubjectUseCase) SubjectObjectListFromSubject(ctx context.Context, subjectId int) (*[]models.SubjectObject, error) {
+	subject, err := subjectUseCase.subjectRepo.GetSubject(ctx, subjectId)
+	if err != nil {
+		return nil, err
+	}
 	return subjectUseCase.subjectRepo.GetSubjectObjectsBySubject(ctx, subject)
 }
 

@@ -38,15 +38,14 @@ func (h *Handler) ListSubject(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	group, err := h.groupUseCase.GetGroupById(c.Request.Context(), groupId)
-	subjectList, err := h.useCase.GetSubjectByGroup(c.Request.Context(), group)
+	subjectList, err := h.useCase.GetSubjectsByGroup(c.Request.Context(), groupId)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
 	c.JSON(http.StatusOK, &getSubjectResponse{
-		Subjects: toSubjects(*subjectList, *group),
+		Subjects: toSubjects(*subjectList),
 	})
 }
 
@@ -68,8 +67,8 @@ func (h *Handler) ListSubjectObject(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	subject, err := h.useCase.GetSubjectById(c.Request.Context(), subjectId)
-	subjectObjectList, err := h.useCase.SubjectObjectListFromSubject(c.Request.Context(), subject)
+
+	subjectObjectList, err := h.useCase.SubjectObjectListFromSubject(c.Request.Context(), subjectId)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -101,25 +100,35 @@ func (h *Handler) IndexPage(c *gin.Context) {
 }
 
 func (h *Handler) CreateSubject(c *gin.Context) {
+	userName, _ := c.Get("user_name")
 	subjectName := c.PostForm("subject_name")
 	if subjectName == "" {
-		c.HTML(http.StatusUnprocessableEntity, "home/subject.html", gin.H{
+		c.HTML(http.StatusUnprocessableEntity, "admin/subjects.html", gin.H{
 			"message": "Пустое имя предмета",
 		})
 	}
-	groupId, err := strconv.Atoi(c.Param("group_id"))
+	groupId, err := strconv.Atoi(c.PostForm("group_id"))
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	err = h.useCase.CreateSubject(c, subjectName, groupId)
+	err = h.useCase.CreateSubject(c.Request.Context(), subjectName, groupId)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	c.HTML(http.StatusOK, "admin/subject.html", gin.H{
-		"message": "Предмет успешно создан",
+	subjectList, err := h.useCase.GetSubjectsByGroup(c.Request.Context(), groupId)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.HTML(http.StatusOK, "admin/subjects.html", gin.H{
+		"message":        "Предмет успешно создан",
+		"subjectList":    subjectList,
+		"currentGroupId": groupId,
+		"userName":       userName,
 	})
 }
 
@@ -162,16 +171,16 @@ func (h *Handler) ListHtmlSubjectsGroups(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	group, err := h.groupUseCase.GetGroupById(c.Request.Context(), groupId)
-	subjectList, err := h.useCase.GetSubjectByGroup(c.Request.Context(), group)
+	subjectList, err := h.useCase.GetSubjectsByGroup(c.Request.Context(), groupId)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
 	c.HTML(http.StatusOK, "admin/subjects.html", gin.H{
-		"userName":    userName,
-		"subjectList": subjectList,
+		"userName":       userName,
+		"subjectList":    subjectList,
+		"currentGroupId": groupId,
 	})
 }
 
@@ -179,15 +188,16 @@ func (h *Handler) ListHtmlSubjectObject(c *gin.Context) {
 	userName, _ := c.Get("user_name")
 	subjectId, err := strconv.Atoi(c.Param("subject_id"))
 
-	subject, err := h.useCase.GetSubjectById(c.Request.Context(), subjectId)
+	subjectObjectList, err := h.useCase.SubjectObjectListFromSubject(c.Request.Context(), subjectId)
+
 	if err != nil {
 		c.HTML(http.StatusUnprocessableEntity, "admin/subject_objects.html", gin.H{
 			"userName":          userName,
 			"subjectObjectList": nil,
+			"subjectId":         subjectId,
 			"message":           "Дисциплина не найдена",
 		})
 	}
-	subjectObjectList, err := h.useCase.SubjectObjectListFromSubject(c.Request.Context(), subject)
 
 	c.HTML(http.StatusOK, "admin/subject_objects.html", gin.H{
 		"userName":          userName,
@@ -245,8 +255,7 @@ func (h *Handler) DeleteSubjectObject(context *gin.Context) {
 			"message":           "Ошибка удаления",
 		})
 	}
-	subject, err := h.useCase.GetSubjectById(context.Request.Context(), subjectId)
-	subjectObjectList, err := h.useCase.SubjectObjectListFromSubject(context.Request.Context(), subject)
+	subjectObjectList, err := h.useCase.SubjectObjectListFromSubject(context.Request.Context(), subjectId)
 
 	context.HTML(http.StatusOK, "admin/subject_objects.html", gin.H{
 		"userName":          userName,
@@ -255,22 +264,21 @@ func (h *Handler) DeleteSubjectObject(context *gin.Context) {
 	})
 }
 
-func toSubjects(subjects []models.Subject, group models.Group) []models.Subject {
+func toSubjects(subjects []models.Subject) []models.Subject {
 	out := make([]models.Subject, len(subjects))
 
 	for i, s := range subjects {
-		out[i] = toSubject(s, group)
+		out[i] = toSubject(s)
 	}
 
 	return out
 }
 
-func toSubject(s models.Subject, g models.Group) models.Subject {
+func toSubject(s models.Subject) models.Subject {
 	return models.Subject{
 		ID:          s.ID,
 		SubjectName: s.SubjectName,
 		GroupId:     s.GroupId,
-		Group:       g,
 	}
 }
 

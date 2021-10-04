@@ -8,8 +8,8 @@ import (
 const CtxSubjectKey = "educational"
 
 type CommonSubjectUseCase interface {
-	GetSubjectByGroup(ctx context.Context, group *models.Group) (*[]models.Subject, error)
-	SubjectObjectListFromSubject(ctx context.Context, subject *models.Subject) (*[]models.SubjectObject, error)
+	GetSubjectsByGroup(ctx context.Context, groupId int) (*[]models.Subject, error)
+	SubjectObjectListFromSubject(ctx context.Context, subjectId int) (*[]models.SubjectObject, error)
 	GetSubjectById(ctx context.Context, id int) (*models.Subject, error)
 	GetAllSubject(ctx context.Context) (*[]models.Subject, error)
 	CreateSubject(ctx context.Context, name string, groupId int) error

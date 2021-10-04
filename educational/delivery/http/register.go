@@ -24,6 +24,12 @@ func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCa
 	{
 		adminEndpoints.GET("/groups", h.ListHtmlGroups)
 		adminEndpoints.GET("/groups/:group_id/subjects", h.ListHtmlSubjectsGroups)
+		adminEndpoints.GET("/groups/:group_id/subject/create", func(c *gin.Context) {
+			c.HTML(http2.StatusOK, "admin/form_subject.html", gin.H{
+				"groupId": c.Param("group_id"),
+			})
+		})
+		adminEndpoints.POST("groups/:group_id/subject/create", h.CreateSubject)
 		adminEndpoints.GET("/subject/:subject_id", h.ListHtmlSubjectObject)
 		adminEndpoints.GET("/subject/:subject_id/subject_object/create", func(c *gin.Context) {
 			c.HTML(http2.StatusOK, "admin/form_subject_object.html", gin.H{

@@ -4,16 +4,3 @@ auth:
   hash_salt: "hash_salt"
   signing_key: "signing_key"
   token_ttl: 86400
-
-mysql:
-  uri: "localhost:7001"
-  name: "testdb"
-  user: "root"
-  password: "toor"
-
-mysql_prod:
-  uri: "91.236.136.179:3306"
-  name: "kosipov_go_test"
-  user: "kosipov_kosipov_go_test"
-  password: "jH9gP2hM5duO9q"
-

@@ -57,3 +57,10 @@ func (subjectRepo *SubjectRepository) GetSubjectObject(ctx context.Context, subj
 func (subjectRepo *SubjectRepository) DeleteSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
 	return subjectRepo.db.Delete(&subjectObject).Error
 }
+
+func (subjectRepo *SubjectRepository) GetGroup(ctx context.Context, groupId int) (*models.Group, error) {
+	var group models.Group
+	result := subjectRepo.db.Limit(1).Find(&group, groupId)
+
+	return &group, result.Error
+}
