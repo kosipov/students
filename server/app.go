@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
+	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/kosipov/students/auth"
 	"github.com/kosipov/students/educational"
 	"github.com/kosipov/students/models"
@@ -104,9 +104,10 @@ func initDB() *gorm.DB {
 	pass := viperEnvVariable("MYSQL_PASSWORD")
 	host := viperEnvVariable("MYSQL_HOST")
 	dbname := viperEnvVariable("MYSQL_DBNAME")
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s", user, pass, host, dbname)
+	port := viperEnvVariable("PORT")
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s", host, user, pass, dbname, port)
 
-	client, err := gorm.Open("mysql", dsn)
+	client, err := gorm.Open("postgres", dsn)
 	if err != nil {
 		log.Fatalf("Error occured while establishing connection to gorm")
 	}
