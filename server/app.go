@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
@@ -100,12 +99,7 @@ func (a *App) Run(port string) error {
 }
 
 func initDB() *gorm.DB {
-	user := viperEnvVariable("MYSQL_USER")
-	pass := viperEnvVariable("MYSQL_PASSWORD")
-	host := viperEnvVariable("MYSQL_HOST")
-	dbname := viperEnvVariable("MYSQL_DBNAME")
-	port := viperEnvVariable("PORT")
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s", host, user, pass, dbname, port)
+	dsn := viperEnvVariable("DATABASE_URL")
 
 	client, err := gorm.Open("postgres", dsn)
 	if err != nil {
