@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+  app:
+    image: ghcr.io/kosipov/student:latest
+    restart: always
+    environment:
+      - MYSQL_HOST=$MYSQL_HOST
+      - MYSQL_USERNAME=$MYSQL_USERNAME
+      - MYSQL_DBNAME=$MYSQL_DBNAME
+      - GIN_MODE=$GIN_MODE

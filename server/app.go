@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
@@ -22,6 +23,8 @@ import (
 	educationalgorm "github.com/kosipov/students/educational/repository/gorm"
 	educationalusecase "github.com/kosipov/students/educational/usecase"
 )
+
+import _ "github.com/go-sql-driver/mysql"
 
 type App struct {
 	httpServer *http.Server
@@ -53,6 +56,7 @@ func NewApp() *App {
 
 func (a *App) Run(port string) error {
 	// Init gin handler
+	gin.SetMode(viperEnvVariable("GIN_MODE"))
 	router := gin.Default()
 	router.Use(
 		gin.Recovery(),
@@ -99,11 +103,15 @@ func (a *App) Run(port string) error {
 }
 
 func initDB() *gorm.DB {
-	dsn := viperEnvVariable("DATABASE_URL")
+	user := viperEnvVariable("MYSQL_USER")
+	pass := viperEnvVariable("MYSQL_PASSWORD")
+	host := viperEnvVariable("MYSQL_HOST")
+	dbname := viperEnvVariable("MYSQL_DBNAME")
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s", user, pass, host, dbname)
 
-	client, err := gorm.Open("postgres", dsn)
+	client, err := gorm.Open("mysql", dsn)
 	if err != nil {
-		log.Fatalf("Error occured while establishing connection to gorm")
+		log.Fatalf("Error occured while establishing connection to gorm %s", err.Error())
 	}
 
 	client.AutoMigrate(
@@ -117,9 +125,7 @@ func initDB() *gorm.DB {
 }
 
 func viperEnvVariable(key string) string {
-	if os.Getenv("GIN_MODE") != "release" {
-		viper.SetConfigFile(".env")
-	}
+	viper.SetConfigFile(".env")
 	viper.AllowEmptyEnv(true)
 	viper.AutomaticEnv()
 
@@ -132,7 +138,7 @@ func viperEnvVariable(key string) string {
 	value, ok := viper.Get(key).(string)
 
 	if !ok {
-		log.Fatalf("Invalid type assertion")
+		log.Fatalf("Invalid type assertion with key %s", key)
 	}
 
 	return value

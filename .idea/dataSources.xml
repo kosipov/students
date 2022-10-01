@@ -5,7 +5,19 @@
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://ec2-3-209-124-113.compute-1.amazonaws.com:5432/dc4igm8jhqskqa</jdbc-url>
+      <jdbc-url>jdbc:postgresql://ec2-54-165-90-230.compute-1.amazonaws.com/dbun338i1uugso</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+      <driver-properties>
+        <property name="ssl" value="true" />
+        <property name="sslmode" value="verify-ca" />
+        <property name="sslfactory" value="org.postgresql.ssl.NonValidatingFactory" />
+      </driver-properties>
+    </data-source>
+    <data-source source="LOCAL" name="MySQL - students_kosipov_prod@185.164.172.184" uuid="8722f5fd-55b2-4c36-8c8f-7258aa2f80db">
+      <driver-ref>mysql.8</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
+      <jdbc-url>jdbc:mysql://185.164.172.184:3306/students_kosipov_prod</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
   </component>

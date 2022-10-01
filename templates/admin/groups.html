@@ -4,6 +4,13 @@
 {{template "admin/header.html" . }}
 
 <main role="main" class="container">
+  <div class="row p-3">
+    <div class="col d-flex justify-content-end">
+      <a href="/admin/groups/create">
+        <button type="button" class="btn btn-primary">Создать группу</button>
+      </a>
+    </div>
+  </div>
   <div class="my-3 p-3 bg-white rounded shadow-sm">
     <h6 class="border-bottom border-gray pb-2 mb-0">Группы</h6>
     {{ range .groups }}

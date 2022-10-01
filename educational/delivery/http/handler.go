@@ -135,7 +135,7 @@ func (h *Handler) CreateSubject(c *gin.Context) {
 func (h *Handler) CreateGroup(c *gin.Context) {
 	groupName := c.PostForm("group_name")
 	if groupName == "" {
-		c.HTML(http.StatusUnprocessableEntity, "admin/subject.html", gin.H{
+		c.HTML(http.StatusUnprocessableEntity, "admin/groups.html", gin.H{
 			"message": "Пустое имя группы",
 		})
 	}
@@ -145,9 +145,7 @@ func (h *Handler) CreateGroup(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusOK, "admin/group.html", gin.H{
-		"message": "Группа успешно создана",
-	})
+	c.Redirect(http.StatusMovedPermanently, "/admin/groups")
 }
 
 func (h *Handler) ListHtmlGroups(c *gin.Context) {
