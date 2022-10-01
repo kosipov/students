@@ -11,3 +11,5 @@ services:
       - GIN_MODE=$GIN_MODE
     ports:
       - "8080:8080"
+    networks:
+      - "bridge"
