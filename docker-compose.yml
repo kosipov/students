@@ -2,7 +2,7 @@ version: '2'
 
 services:
   app:
-    image: ghcr.io/kosipov/student:latest
+    image: ghcr.io/kosipov/students:latest
     restart: always
     environment:
       - MYSQL_HOST=$MYSQL_HOST

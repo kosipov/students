@@ -14,10 +14,10 @@ jobs:
         uses: actions/checkout@main
 
       - name: Build container image latest version
-        run: docker build -t ghcr.io/kosipov/student:latest .
+        run: docker build -t ghcr.io/kosipov/students:latest .
 
       - name: Push image to DigitalOcean Container Registry
-        run: docker push ghcr.io/kosipov/student:latest
+        run: docker push ghcr.io/kosipov/students:latest
 
   deploy:
     runs-on: ubuntu-latest
