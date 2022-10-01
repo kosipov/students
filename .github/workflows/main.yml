@@ -37,6 +37,7 @@ jobs:
             export MYSQL_USER ${{ secrets.MYSQL_USERNAME }}
             export MYSQL_DBNAME ${{ secrets.MYSQL_DBNAME }}
             export GIN_MODE release
+            echo ${{secrets.DOCKER_HUB_GITHUB_KEY}} | docker login ghcr.io -u USERNAME --password-stdin
             docker-compose stop
             docker-compose rm -f
             docker-compose pull
