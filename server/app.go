@@ -137,7 +137,10 @@ func viperEnvVariable(key string) string {
 	value, ok := viper.Get(key).(string)
 
 	if !ok {
-		log.Fatalf("Invalid type assertion with key %s", key)
+		value = os.Getenv(key)
+		if value == "" {
+			log.Fatalf("Invalid type assertion with key %s", key)
+		}
 	}
 
 	return value
