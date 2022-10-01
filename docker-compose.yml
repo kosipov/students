@@ -9,3 +9,5 @@ services:
       - MYSQL_USERNAME=$MYSQL_USERNAME
       - MYSQL_DBNAME=$MYSQL_DBNAME
       - GIN_MODE=$GIN_MODE
+    ports:
+      - "8080:8080"
