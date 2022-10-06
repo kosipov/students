@@ -55,6 +55,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
+          envs: MYSQL_HOST,MYSQL_USER,MYSQL_DBNAME
           script: |
             cd student.app
             export GIN_MODE release
