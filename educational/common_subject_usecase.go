@@ -14,5 +14,7 @@ type CommonSubjectUseCase interface {
 	GetAllSubject(ctx context.Context) (*[]models.Subject, error)
 	CreateSubject(ctx context.Context, name string, groupId int) error
 	CreateSubjectObject(ctx context.Context, name string, subjectId int, href string) (*models.SubjectObject, error)
-	DeleteSubjectObject(ctx context.Context, subjectObjectId int) error
+	GetSubjectObject(ctx context.Context, subjectId int, subjectObjectId int) (*models.SubjectObject, error)
+	UpdateSubjectObject(ctx context.Context, subjectId int, subjectObjectId int, name string, href string) (*models.SubjectObject, error)
+	DeleteSubjectObject(ctx context.Context, subjectId int, subjectObjectId int) error
 }

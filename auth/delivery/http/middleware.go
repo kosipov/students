@@ -17,7 +17,8 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 	session := sessions.Default(c)
 	user := session.Get("user_id")
 	if user == nil {
-		c.Redirect(http.StatusMovedPermanently, "/auth/sign-in")
+		// Temporary redirect: a cached 301 would keep sending the browser to sign-in even after login.
+		c.Redirect(http.StatusFound, "/auth/sign-in")
 		c.Abort()
 		return
 	}

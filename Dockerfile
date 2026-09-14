@@ -1,24 +1,39 @@
 # syntax=docker/dockerfile:1
-FROM node:12.18.1
+
+# Frontend assets: bootstrap bundle and styles into templates/dist
+FROM node:22-alpine AS frontend
 WORKDIR /app
-COPY . ./
-RUN npm install --production
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY webpack.config.js ./
+COPY templates/src ./templates/src
 RUN npm run build
 
-FROM golang:1.19-alpine
-
-WORKDIR /app
-
-COPY go.mod ./
-COPY go.sum ./
+# Go binary: both DB drivers are pure Go, so the binary is fully static
+FROM golang:1.19-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
 RUN go mod download
-
 COPY . ./
-COPY --from=0 /app/templates/dist ./templates/dist
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /student-app ./cmd/api \
+ && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /create-admin ./cmd/createadmin
 
-RUN go build -o ./student-app ./cmd/api/main.go
+# Runtime: templates and config are resolved relative to the working directory
+FROM alpine:3.22
+RUN addgroup -S app && adduser -S -G app app
+WORKDIR /app
+COPY --from=build /student-app ./student-app
+COPY --from=build /create-admin ./create-admin
+COPY config ./config
+COPY templates/admin ./templates/admin
+COPY templates/home ./templates/home
+COPY --from=frontend /app/templates/dist ./templates/dist
+
+USER app
+ENV GIN_MODE=release
 EXPOSE 8080
 
-CMD [ "./student-app" ]
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-8080}/healthz" || exit 1
 
-
+CMD ["./student-app"]

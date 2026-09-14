@@ -54,8 +54,16 @@ func (subjectRepo *SubjectRepository) GetSubjectObject(ctx context.Context, subj
 	return &subjectObject, result.Error
 }
 
+func (subjectRepo *SubjectRepository) UpdateSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
+	// Map is used instead of struct so that zero values (e.g. cleared href) are persisted too.
+	return subjectRepo.db.Model(subjectObject).Updates(map[string]interface{}{
+		"name": subjectObject.Name,
+		"href": subjectObject.Href,
+	}).Error
+}
+
 func (subjectRepo *SubjectRepository) DeleteSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
-	return subjectRepo.db.Delete(&subjectObject).Error
+	return subjectRepo.db.Delete(subjectObject).Error
 }
 
 func (subjectRepo *SubjectRepository) GetGroup(ctx context.Context, groupId int) (*models.Group, error) {

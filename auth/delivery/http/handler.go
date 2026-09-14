@@ -55,16 +55,15 @@ func (h *Handler) SignIn(c *gin.Context) {
 		return
 	}
 
-	c.Redirect(http.StatusMovedPermanently, "/admin/groups")
+	c.Redirect(http.StatusSeeOther, "/admin/groups")
 }
 
 func (h *Handler) SignOut(c *gin.Context) {
 	session := sessions.Default(c)
-	userId := session.Get("user_id")
-	if userId == nil {
-		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
-			"message": "Некорректная сессия",
-		})
+	if session.Get("user_id") == nil {
+		// Already signed out, nothing to clear.
+		c.Redirect(http.StatusFound, "/auth/sign-in")
+		return
 	}
 	session.Clear()
 
@@ -72,7 +71,8 @@ func (h *Handler) SignOut(c *gin.Context) {
 		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
 			"message": "Ошибка выхода",
 		})
+		return
 	}
 
-	c.Redirect(http.StatusTemporaryRedirect, "/auth/sign-in")
+	c.Redirect(http.StatusFound, "/auth/sign-in")
 }

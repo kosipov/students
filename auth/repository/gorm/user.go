@@ -18,6 +18,14 @@ func (u *UserRepository) CreateUser(ctx context.Context, user *models.User) erro
 	return u.db.Create(user).Error
 }
 
+func (u *UserRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+	if err := u.db.Where(&models.User{Username: username}).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (u *UserRepository) GetUserByEmailAndPass(ctx context.Context, username, password string) (*models.User, error) {
 	var user = models.User{}
 

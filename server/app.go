@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	authhttp "github.com/kosipov/students/auth/delivery/http"
@@ -35,7 +37,7 @@ type App struct {
 }
 
 func NewApp() *App {
-	db := initDB()
+	db := InitDB()
 
 	userRepo := authgorm.NewUserRepository(db)
 	groupRepo := educationalgorm.NewGroupRepository(db)
@@ -57,13 +59,19 @@ func NewApp() *App {
 func (a *App) Run(port string) error {
 	// Init gin handler
 	gin.SetMode(viperEnvVariable("GIN_MODE"))
-	router := gin.Default()
+	router := gin.New()
 	router.Use(
 		gin.Recovery(),
-		gin.Logger(),
+		gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/healthz"}}),
 	)
 	router.LoadHTMLGlob("templates/**/*.html")
 	router.Static("/dist", "templates/dist")
+
+	// Liveness probe for container healthcheck. It does not touch the DB on purpose:
+	// a DB outage should not make the orchestrator restart the app in a loop.
+	router.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
 
 	// Set up http handlers
 	// SignUp/SignIn endpoints
@@ -86,13 +94,14 @@ func (a *App) Run(port string) error {
 	}
 
 	go func() {
-		if err := a.httpServer.ListenAndServe(); err != nil {
+		if err := a.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("Failed to listen and serve: %+v", err)
 		}
 	}()
 
+	// Docker (and Dokploy on top of Swarm) stops containers with SIGTERM.
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, os.Interrupt)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	<-quit
 
@@ -102,7 +111,8 @@ func (a *App) Run(port string) error {
 	return a.httpServer.Shutdown(ctx)
 }
 
-func initDB() *gorm.DB {
+// InitDB connects to MySQL using MYSQL_* env variables and migrates the schema.
+func InitDB() *gorm.DB {
 	user := viperEnvVariable("MYSQL_USER")
 	pass := viperEnvVariable("MYSQL_PASSWORD")
 	host := viperEnvVariable("MYSQL_HOST")

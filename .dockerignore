@@ -1,0 +1,20 @@
+# VCS and IDE
+.git
+.github
+.idea
+
+# Secrets and local artifacts
+.env
+*.log
+main
+
+# Dependencies and build output are produced inside the image
+node_modules
+templates/dist/*.js
+templates/dist/*.css
+templates/dist/*.txt
+
+# Build and deploy files are not needed inside the image
+Dockerfile
+.dockerignore
+DEPLOY.md

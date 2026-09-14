@@ -13,6 +13,7 @@ type CommonSubjectRepository interface {
 	CreateSubject(ctx context.Context, subject *models.Subject) error
 	CreateSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error
 	GetSubjectObject(ctx context.Context, subjectObjectId int) (*models.SubjectObject, error)
+	UpdateSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error
 	DeleteSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error
 	GetGroup(ctx context.Context, groupId int) (*models.Group, error)
 }

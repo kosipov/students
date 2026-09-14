@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"errors"
+	"github.com/jinzhu/gorm"
 	"github.com/kosipov/students/educational"
 	"github.com/kosipov/students/models"
 )
@@ -23,7 +25,7 @@ func (subjectUseCase *SubjectUseCase) GetSubjectsByGroup(ctx context.Context, gr
 }
 
 func (subjectUseCase *SubjectUseCase) SubjectObjectListFromSubject(ctx context.Context, subjectId int) (*[]models.SubjectObject, error) {
-	subject, err := subjectUseCase.subjectRepo.GetSubject(ctx, subjectId)
+	subject, err := subjectUseCase.GetSubjectById(ctx, subjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +33,14 @@ func (subjectUseCase *SubjectUseCase) SubjectObjectListFromSubject(ctx context.C
 }
 
 func (subjectUseCase *SubjectUseCase) GetSubjectById(ctx context.Context, id int) (*models.Subject, error) {
-	return subjectUseCase.subjectRepo.GetSubject(ctx, id)
+	subject, err := subjectUseCase.subjectRepo.GetSubject(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, educational.ErrSubjectNotFound
+		}
+		return nil, err
+	}
+	return subject, nil
 }
 
 func (subjectUseCase *SubjectUseCase) GetAllSubject(ctx context.Context) (*[]models.Subject, error) {
@@ -50,11 +59,36 @@ func (subjectUseCase *SubjectUseCase) CreateSubjectObject(ctx context.Context, n
 	return subjectObject, subjectUseCase.subjectRepo.CreateSubjectObject(ctx, subjectObject)
 }
 
-func (subjectUseCase *SubjectUseCase) DeleteSubjectObject(ctx context.Context, subjectObjectId int) error {
+func (subjectUseCase *SubjectUseCase) GetSubjectObject(ctx context.Context, subjectId int, subjectObjectId int) (*models.SubjectObject, error) {
 	subjectObject, err := subjectUseCase.subjectRepo.GetSubjectObject(ctx, subjectObjectId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, educational.ErrSubjectObjectNotFound
+		}
+		return nil, err
+	}
+	if subjectObject.SubjectId != subjectId {
+		return nil, educational.ErrSubjectObjectNotFound
+	}
+	return subjectObject, nil
+}
+
+func (subjectUseCase *SubjectUseCase) UpdateSubjectObject(ctx context.Context, subjectId int, subjectObjectId int, name string, href string) (*models.SubjectObject, error) {
+	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	subjectObject.Name = name
+	subjectObject.Href = href
+
+	return subjectObject, subjectUseCase.subjectRepo.UpdateSubjectObject(ctx, subjectObject)
+}
+
+func (subjectUseCase *SubjectUseCase) DeleteSubjectObject(ctx context.Context, subjectId int, subjectObjectId int) error {
+	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
 	if err != nil {
 		return err
 	}
-	err = subjectUseCase.subjectRepo.DeleteSubjectObject(ctx, subjectObject)
-	return err
+	return subjectUseCase.subjectRepo.DeleteSubjectObject(ctx, subjectObject)
 }

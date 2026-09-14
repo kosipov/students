@@ -17,8 +17,6 @@ func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCa
 
 	router.GET("/", h.IndexPage)
 
-	router.POST("/admin/groups/:group_id/subjects/", h.CreateSubject)
-
 	adminEndpoints := router.Group("/admin")
 	adminEndpoints.Use(http.NewAuthMiddleware())
 	{
@@ -33,7 +31,7 @@ func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCa
 			c.HTML(http2.StatusOK, "admin/form_group.html", gin.H{})
 		})
 		adminEndpoints.POST("/groups", h.CreateGroup)
-		adminEndpoints.POST("groups/:group_id/subject/create", h.CreateSubject)
+		adminEndpoints.POST("/groups/:group_id/subject/create", h.CreateSubject)
 		adminEndpoints.GET("/subject/:subject_id", h.ListHtmlSubjectObject)
 		adminEndpoints.GET("/subject/:subject_id/subject_object/create", func(c *gin.Context) {
 			c.HTML(http2.StatusOK, "admin/form_subject_object.html", gin.H{
@@ -41,6 +39,8 @@ func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCa
 			})
 		})
 		adminEndpoints.POST("/subject/:subject_id/subject_object/create", h.CreateSubjectObject)
+		adminEndpoints.GET("/subject/:subject_id/subject_object/:subject_object_id/edit", h.EditSubjectObjectForm)
+		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/edit", h.UpdateSubjectObject)
 		adminEndpoints.DELETE("/subject/:subject_id/subject_object/:subject_object_id", h.DeleteSubjectObject)
 	}
 }

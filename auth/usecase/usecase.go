@@ -37,6 +37,14 @@ func NewAuthUseCase(
 }
 
 func (a *AuthUseCase) SignUp(ctx context.Context, username, password string) error {
+	_, err := a.userRepo.GetUserByUsername(ctx, username)
+	if err == nil {
+		return auth.ErrUserAlreadyExists
+	}
+	if !gorm.IsRecordNotFoundError(err) {
+		return err
+	}
+
 	pwd := sha1.New()
 	pwd.Write([]byte(password))
 	pwd.Write([]byte(a.hashSalt))
