@@ -1,9 +1,13 @@
 package educational
 
-import "errors"
+import (
+	"errors"
+	"sort"
+	"strings"
+)
 
 var (
-	ErrSubjectNotFound = errors.New("educational not found")
+	ErrSubjectNotFound = errors.New("subject not found")
 	ErrGroupNotFound   = errors.New("group not found")
 
 	ErrSubjectObjectNotFound = errors.New("subject object not found")
@@ -14,3 +18,17 @@ var (
 	ErrContentNotModified = errors.New("content not modified")
 	ErrContentUnsupported = errors.New("content type is not supported")
 )
+
+// ValidationError lists invalid input fields with messages that can be shown to the user.
+type ValidationError struct {
+	Fields map[string]string
+}
+
+func (e *ValidationError) Error() string {
+	fields := make([]string, 0, len(e.Fields))
+	for field := range e.Fields {
+		fields = append(fields, field)
+	}
+	sort.Strings(fields)
+	return "invalid fields: " + strings.Join(fields, ", ")
+}

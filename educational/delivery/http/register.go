@@ -2,50 +2,33 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/kosipov/students/auth/delivery/http"
 	"github.com/kosipov/students/educational"
-	http2 "net/http"
 )
 
-func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCase, gc educational.CommonGroupUseCase) {
-	h := NewHandler(uc, gc)
+// RegisterHTTPEndpoints registers the public API on api and the admin API on admin,
+// which is expected to be protected by the auth middleware.
+func RegisterHTTPEndpoints(api *gin.RouterGroup, admin *gin.RouterGroup, subjectUseCase educational.CommonSubjectUseCase, groupUseCase educational.CommonGroupUseCase) {
+	h := NewHandler(subjectUseCase, groupUseCase)
 
-	router.GET("/groups", h.ListGroups)
-	router.GET("/groups/:group_id/subjects", h.ListSubject)
+	api.GET("/catalog", h.Catalog)
+	api.GET("/tasks/:id", h.Task)
 
-	router.GET("/subjects/:subject_id", h.ListSubjectObject)
+	admin.GET("/overview", h.Overview)
 
-	router.GET("/", h.IndexPage)
-	router.GET("/tasks/:subject_object_id", h.TaskPage)
+	admin.GET("/groups", h.ListGroups)
+	admin.POST("/groups", h.CreateGroup)
+	admin.GET("/groups/:id", h.GetGroup)
+	admin.PATCH("/groups/:id", h.UpdateGroup)
+	admin.DELETE("/groups/:id", h.DeleteGroup)
+	admin.POST("/groups/:id/subjects", h.CreateSubject)
 
-	adminEndpoints := router.Group("/admin")
-	adminEndpoints.Use(http.NewAuthMiddleware())
-	{
-		adminEndpoints.GET("/groups", h.ListHtmlGroups)
-		adminEndpoints.GET("/groups/:group_id/subjects", h.ListHtmlSubjectsGroups)
-		adminEndpoints.GET("/groups/:group_id/subject/create", func(c *gin.Context) {
-			c.HTML(http2.StatusOK, "admin/form_subject.html", gin.H{
-				"groupId": c.Param("group_id"),
-			})
-		})
-		adminEndpoints.GET("/groups/create", func(c *gin.Context) {
-			c.HTML(http2.StatusOK, "admin/form_group.html", gin.H{})
-		})
-		adminEndpoints.POST("/groups", h.CreateGroup)
-		adminEndpoints.POST("/groups/:group_id/visibility", h.SetGroupVisibility)
-		adminEndpoints.POST("/groups/:group_id/subject/create", h.CreateSubject)
-		adminEndpoints.GET("/subject/:subject_id", h.ListHtmlSubjectObject)
-		adminEndpoints.GET("/subject/:subject_id/subject_object/create", func(c *gin.Context) {
-			c.HTML(http2.StatusOK, "admin/form_subject_object.html", gin.H{
-				"subjectId": c.Param("subject_id"),
-			})
-		})
-		adminEndpoints.POST("/subject/:subject_id/subject_object/create", h.CreateSubjectObject)
-		adminEndpoints.GET("/subject/:subject_id/subject_object/:subject_object_id/edit", h.EditSubjectObjectForm)
-		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/edit", h.UpdateSubjectObject)
-		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/refresh", h.RefreshSubjectObjectContent)
-		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/visibility", h.SetSubjectObjectVisibility)
-		adminEndpoints.GET("/subject/:subject_id/subject_object/:subject_object_id/preview", h.PreviewTask)
-		adminEndpoints.DELETE("/subject/:subject_id/subject_object/:subject_object_id", h.DeleteSubjectObject)
-	}
+	admin.GET("/subjects/:id", h.GetSubject)
+	admin.PATCH("/subjects/:id", h.UpdateSubject)
+	admin.DELETE("/subjects/:id", h.DeleteSubject)
+	admin.POST("/subjects/:id/tasks", h.CreateTask)
+
+	admin.PATCH("/tasks/:id", h.UpdateTask)
+	admin.DELETE("/tasks/:id", h.DeleteTask)
+	admin.POST("/tasks/:id/refresh", h.RefreshTask)
+	admin.GET("/tasks/:id/preview", h.PreviewTask)
 }

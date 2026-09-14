@@ -1,12 +1,11 @@
 # syntax=docker/dockerfile:1
 
-# Frontend assets: bootstrap bundle and styles into templates/dist
+# Frontend: the SPA from web/ built into web/dist
 FROM node:22-alpine AS frontend
-WORKDIR /app
-COPY package.json package-lock.json ./
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
 RUN npm ci
-COPY webpack.config.js ./
-COPY templates/src ./templates/src
+COPY web ./
 RUN npm run build
 
 # Go binary: both DB drivers are pure Go, so the binary is fully static
@@ -18,16 +17,14 @@ COPY . ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /student-app ./cmd/api \
  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /create-admin ./cmd/createadmin
 
-# Runtime: templates and config are resolved relative to the working directory
+# Runtime: config and the frontend are resolved relative to the working directory
 FROM alpine:3.22
 RUN addgroup -S app && adduser -S -G app app
 WORKDIR /app
 COPY --from=build /student-app ./student-app
 COPY --from=build /create-admin ./create-admin
 COPY config ./config
-COPY templates/admin ./templates/admin
-COPY templates/home ./templates/home
-COPY --from=frontend /app/templates/dist ./templates/dist
+COPY --from=frontend /web/dist ./web/dist
 
 USER app
 ENV GIN_MODE=release

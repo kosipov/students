@@ -36,83 +36,68 @@ func NewSubjectUseCase(subjectRepo educational.CommonSubjectRepository, contentF
 	}
 }
 
-func (subjectUseCase *SubjectUseCase) GetSubjectsByGroup(ctx context.Context, groupId int) (*[]models.Subject, error) {
-	group, err := subjectUseCase.subjectRepo.GetGroup(ctx, groupId)
+func (subjectUseCase *SubjectUseCase) GetSubjectWithSubjectObjects(ctx context.Context, id int) (*models.Subject, error) {
+	subject, err := subjectUseCase.subjectRepo.GetSubjectWithSubjectObjects(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, notFound(err, educational.ErrSubjectNotFound)
 	}
-	return subjectUseCase.subjectRepo.GetSubjectsByGroup(ctx, group)
+	return subject, nil
 }
 
-func (subjectUseCase *SubjectUseCase) GetVisibleSubjectsByGroup(ctx context.Context, groupId int) (*[]models.Subject, error) {
-	group, err := subjectUseCase.subjectRepo.GetGroup(ctx, groupId)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, educational.ErrGroupNotFound
-		}
+func (subjectUseCase *SubjectUseCase) CreateSubject(ctx context.Context, groupId int, input educational.SubjectInput) (*models.Subject, error) {
+	if err := input.Normalize(); err != nil {
 		return nil, err
 	}
-	if group.Hidden {
-		return nil, educational.ErrGroupNotFound
-	}
-	return subjectUseCase.subjectRepo.GetSubjectsByGroup(ctx, group)
-}
-
-func (subjectUseCase *SubjectUseCase) SubjectObjectListFromSubject(ctx context.Context, subjectId int) (*[]models.SubjectObject, error) {
-	subject, err := subjectUseCase.GetSubjectById(ctx, subjectId)
-	if err != nil {
-		return nil, err
-	}
-	return subjectUseCase.subjectRepo.GetSubjectObjectsBySubject(ctx, subject)
-}
-
-func (subjectUseCase *SubjectUseCase) VisibleSubjectObjectListFromSubject(ctx context.Context, subjectId int) (*[]models.SubjectObject, error) {
-	visible, err := subjectUseCase.isSubjectVisible(ctx, subjectId)
-	if err != nil {
-		return nil, err
-	}
-	if !visible {
-		return nil, educational.ErrSubjectNotFound
+	if _, err := subjectUseCase.subjectRepo.GetGroup(ctx, groupId); err != nil {
+		return nil, notFound(err, educational.ErrGroupNotFound)
 	}
 
-	subjectObjects, err := subjectUseCase.SubjectObjectListFromSubject(ctx, subjectId)
-	if err != nil {
-		return nil, err
-	}
-
-	visibleSubjectObjects := make([]models.SubjectObject, 0, len(*subjectObjects))
-	for _, subjectObject := range *subjectObjects {
-		if !subjectObject.Hidden {
-			visibleSubjectObjects = append(visibleSubjectObjects, subjectObject)
-		}
-	}
-	return &visibleSubjectObjects, nil
-}
-
-func (subjectUseCase *SubjectUseCase) GetSubjectById(ctx context.Context, id int) (*models.Subject, error) {
-	subject, err := subjectUseCase.subjectRepo.GetSubject(ctx, id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, educational.ErrSubjectNotFound
-		}
+	subject := &models.Subject{SubjectName: input.Name, GroupId: groupId}
+	if err := subjectUseCase.subjectRepo.CreateSubject(ctx, subject); err != nil {
 		return nil, err
 	}
 	return subject, nil
 }
 
-func (subjectUseCase *SubjectUseCase) GetAllSubject(ctx context.Context) (*[]models.Subject, error) {
-	return subjectUseCase.subjectRepo.GetSubjects(ctx)
+func (subjectUseCase *SubjectUseCase) UpdateSubject(ctx context.Context, id int, input educational.SubjectInput) (*models.Subject, error) {
+	if err := input.Normalize(); err != nil {
+		return nil, err
+	}
+	subject, err := subjectUseCase.getSubject(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	subject.SubjectName = input.Name
+	if err := subjectUseCase.subjectRepo.UpdateSubject(ctx, subject); err != nil {
+		return nil, err
+	}
+	return subject, nil
 }
 
-func (subjectUseCase *SubjectUseCase) CreateSubject(ctx context.Context, name string, groupId int) error {
-	subject := &models.Subject{SubjectName: name, GroupId: groupId}
-
-	return subjectUseCase.subjectRepo.CreateSubject(ctx, subject)
+func (subjectUseCase *SubjectUseCase) DeleteSubject(ctx context.Context, id int) error {
+	subject, err := subjectUseCase.getSubject(ctx, id)
+	if err != nil {
+		return err
+	}
+	return subjectUseCase.subjectRepo.DeleteSubject(ctx, subject)
 }
 
-func (subjectUseCase *SubjectUseCase) CreateSubjectObject(ctx context.Context, name string, subjectId int, href string) (*models.SubjectObject, error) {
-	subjectObject := &models.SubjectObject{SubjectId: subjectId, Name: name, Href: href}
+func (subjectUseCase *SubjectUseCase) CreateSubjectObject(ctx context.Context, subjectId int, input educational.SubjectObjectInput) (*models.SubjectObject, error) {
+	if err := input.Normalize(); err != nil {
+		return nil, err
+	}
+	if _, err := subjectUseCase.getSubject(ctx, subjectId); err != nil {
+		return nil, err
+	}
 
+	subjectObject := &models.SubjectObject{
+		SubjectId: subjectId,
+		Name:      input.Name,
+		Href:      input.Href,
+		Comment:   input.Comment,
+		Hidden:    input.Hidden,
+	}
 	if err := subjectUseCase.subjectRepo.CreateSubjectObject(ctx, subjectObject); err != nil {
 		return nil, err
 	}
@@ -122,29 +107,28 @@ func (subjectUseCase *SubjectUseCase) CreateSubjectObject(ctx context.Context, n
 	return subjectObject, nil
 }
 
-func (subjectUseCase *SubjectUseCase) GetSubjectObject(ctx context.Context, subjectId int, subjectObjectId int) (*models.SubjectObject, error) {
-	subjectObject, err := subjectUseCase.subjectRepo.GetSubjectObject(ctx, subjectObjectId)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, educational.ErrSubjectObjectNotFound
-		}
+func (subjectUseCase *SubjectUseCase) UpdateSubjectObject(ctx context.Context, id int, patch educational.SubjectObjectPatch) (*models.SubjectObject, error) {
+	if err := patch.Normalize(); err != nil {
 		return nil, err
 	}
-	if subjectObject.SubjectId != subjectId {
-		return nil, educational.ErrSubjectObjectNotFound
-	}
-	return subjectObject, nil
-}
-
-func (subjectUseCase *SubjectUseCase) UpdateSubjectObject(ctx context.Context, subjectId int, subjectObjectId int, name string, href string) (*models.SubjectObject, error) {
-	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
+	subjectObject, err := subjectUseCase.getSubjectObject(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	hrefChanged := subjectObject.Href != href
-	subjectObject.Name = name
-	subjectObject.Href = href
+	hrefChanged := patch.Href != nil && *patch.Href != subjectObject.Href
+	if patch.Name != nil {
+		subjectObject.Name = *patch.Name
+	}
+	if patch.Href != nil {
+		subjectObject.Href = *patch.Href
+	}
+	if patch.Comment != nil {
+		subjectObject.Comment = *patch.Comment
+	}
+	if patch.Hidden != nil {
+		subjectObject.Hidden = *patch.Hidden
+	}
 
 	if err := subjectUseCase.subjectRepo.UpdateSubjectObject(ctx, subjectObject); err != nil {
 		return nil, err
@@ -162,96 +146,16 @@ func (subjectUseCase *SubjectUseCase) UpdateSubjectObject(ctx context.Context, s
 	return subjectObject, nil
 }
 
-func (subjectUseCase *SubjectUseCase) SetSubjectObjectHidden(ctx context.Context, subjectId int, subjectObjectId int, hidden bool) error {
-	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
+func (subjectUseCase *SubjectUseCase) DeleteSubjectObject(ctx context.Context, id int) error {
+	subjectObject, err := subjectUseCase.getSubjectObject(ctx, id)
 	if err != nil {
 		return err
 	}
-
-	subjectObject.Hidden = hidden
-	return subjectUseCase.subjectRepo.UpdateSubjectObjectHidden(ctx, subjectObject)
+	return subjectUseCase.subjectRepo.DeleteSubjectObject(ctx, subjectObject)
 }
 
-func (subjectUseCase *SubjectUseCase) GetTask(ctx context.Context, subjectObjectId int) (*models.SubjectObject, error) {
-	subjectObject, err := subjectUseCase.subjectRepo.GetSubjectObject(ctx, subjectObjectId)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, educational.ErrSubjectObjectNotFound
-		}
-		return nil, err
-	}
-
-	if subjectObject.Hidden {
-		return nil, educational.ErrSubjectObjectNotFound
-	}
-	visible, err := subjectUseCase.isSubjectVisible(ctx, subjectObject.SubjectId)
-	if err != nil {
-		return nil, err
-	}
-	if !visible {
-		return nil, educational.ErrSubjectObjectNotFound
-	}
-
-	return subjectUseCase.loadTask(subjectObject)
-}
-
-func (subjectUseCase *SubjectUseCase) PreviewTask(ctx context.Context, subjectId int, subjectObjectId int) (*models.SubjectObject, error) {
-	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
-	if err != nil {
-		return nil, err
-	}
-
-	return subjectUseCase.loadTask(subjectObject)
-}
-
-// isSubjectVisible reports whether students can see the subject, i.e. its group is not hidden.
-func (subjectUseCase *SubjectUseCase) isSubjectVisible(ctx context.Context, subjectId int) (bool, error) {
-	subject, err := subjectUseCase.subjectRepo.GetSubject(ctx, subjectId)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	group, err := subjectUseCase.subjectRepo.GetGroup(ctx, subject.GroupId)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return !group.Hidden, nil
-}
-
-// loadTask returns the subject object with its stored document, refreshing it when it is outdated.
-func (subjectUseCase *SubjectUseCase) loadTask(subjectObject *models.SubjectObject) (*models.SubjectObject, error) {
-	if !subjectUseCase.IsDocument(subjectObject) {
-		return subjectObject, educational.ErrSubjectObjectNotDocument
-	}
-
-	if !subjectUseCase.isContentOutdated(subjectObject) {
-		return subjectObject, nil
-	}
-
-	if subjectObject.ContentFetchedAt == nil {
-		// Nothing to show yet, so the student waits for the first download.
-		subjectObject = subjectUseCase.refreshContent(*subjectObject, false)
-		if subjectObject.ContentUnsupported {
-			return subjectObject, educational.ErrSubjectObjectNotDocument
-		}
-		return subjectObject, nil
-	}
-
-	// The stored document is shown right away and updated for the next views.
-	go subjectUseCase.refreshContent(*subjectObject, false)
-
-	return subjectObject, nil
-}
-
-func (subjectUseCase *SubjectUseCase) RefreshSubjectObjectContent(ctx context.Context, subjectId int, subjectObjectId int) (*models.SubjectObject, error) {
-	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
+func (subjectUseCase *SubjectUseCase) RefreshSubjectObjectContent(ctx context.Context, id int) (*models.SubjectObject, error) {
+	subjectObject, err := subjectUseCase.getSubjectObject(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -264,6 +168,90 @@ func (subjectUseCase *SubjectUseCase) RefreshSubjectObjectContent(ctx context.Co
 
 func (subjectUseCase *SubjectUseCase) IsDocument(subjectObject *models.SubjectObject) bool {
 	return !subjectObject.ContentUnsupported && subjectUseCase.contentFetcher.Supports(subjectObject.Href)
+}
+
+func (subjectUseCase *SubjectUseCase) GetTask(ctx context.Context, subjectObjectId int) (*educational.Task, error) {
+	task, err := subjectUseCase.getTask(ctx, subjectObjectId)
+	if err != nil {
+		return nil, err
+	}
+	if task.SubjectObject.Hidden || task.Group.Hidden {
+		return nil, educational.ErrSubjectObjectNotFound
+	}
+
+	return subjectUseCase.loadDocument(task)
+}
+
+func (subjectUseCase *SubjectUseCase) PreviewTask(ctx context.Context, subjectObjectId int) (*educational.Task, error) {
+	task, err := subjectUseCase.getTask(ctx, subjectObjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	return subjectUseCase.loadDocument(task)
+}
+
+// getTask loads the subject object with its subject and group.
+// A subject object whose subject or group no longer exists is not found.
+func (subjectUseCase *SubjectUseCase) getTask(ctx context.Context, subjectObjectId int) (*educational.Task, error) {
+	subjectObject, err := subjectUseCase.getSubjectObject(ctx, subjectObjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	subject, err := subjectUseCase.subjectRepo.GetSubject(ctx, subjectObject.SubjectId)
+	if err != nil {
+		return nil, notFound(err, educational.ErrSubjectObjectNotFound)
+	}
+
+	group, err := subjectUseCase.subjectRepo.GetGroup(ctx, subject.GroupId)
+	if err != nil {
+		return nil, notFound(err, educational.ErrSubjectObjectNotFound)
+	}
+
+	return &educational.Task{SubjectObject: subjectObject, Subject: subject, Group: group}, nil
+}
+
+// loadDocument fills the task with its stored document, refreshing it when it is outdated.
+func (subjectUseCase *SubjectUseCase) loadDocument(task *educational.Task) (*educational.Task, error) {
+	subjectObject := task.SubjectObject
+	if !subjectUseCase.IsDocument(subjectObject) {
+		return task, educational.ErrSubjectObjectNotDocument
+	}
+
+	if !subjectUseCase.isContentOutdated(subjectObject) {
+		return task, nil
+	}
+
+	if subjectObject.ContentFetchedAt == nil {
+		// Nothing to show yet, so the student waits for the first download.
+		task.SubjectObject = subjectUseCase.refreshContent(*subjectObject, false)
+		if task.SubjectObject.ContentUnsupported {
+			return task, educational.ErrSubjectObjectNotDocument
+		}
+		return task, nil
+	}
+
+	// The stored document is shown right away and updated for the next views.
+	go subjectUseCase.refreshContent(*subjectObject, false)
+
+	return task, nil
+}
+
+func (subjectUseCase *SubjectUseCase) getSubject(ctx context.Context, id int) (*models.Subject, error) {
+	subject, err := subjectUseCase.subjectRepo.GetSubject(ctx, id)
+	if err != nil {
+		return nil, notFound(err, educational.ErrSubjectNotFound)
+	}
+	return subject, nil
+}
+
+func (subjectUseCase *SubjectUseCase) getSubjectObject(ctx context.Context, id int) (*models.SubjectObject, error) {
+	subjectObject, err := subjectUseCase.subjectRepo.GetSubjectObject(ctx, id)
+	if err != nil {
+		return nil, notFound(err, educational.ErrSubjectObjectNotFound)
+	}
+	return subjectObject, nil
 }
 
 // prefetchContent downloads the document of a new link in the background,
@@ -281,10 +269,12 @@ func (subjectUseCase *SubjectUseCase) isContentOutdated(subjectObject *models.Su
 
 // refreshContent downloads the document and stores the result, including a failure.
 // It works on a copy with its own timeout, so it is not interrupted when the request
-// that triggered it finishes, and concurrent calls for the same subject object share one download.
+// that triggered it finishes, and concurrent calls for the same link share one download.
 // With force the document is downloaded even if it has not changed.
 func (subjectUseCase *SubjectUseCase) refreshContent(subjectObject models.SubjectObject, force bool) *models.SubjectObject {
-	result, _, _ := subjectUseCase.refreshGroup.Do(strconv.Itoa(subjectObject.ID), func() (interface{}, error) {
+	// The link is part of the key: a download of the old link must not be reused after the link changes.
+	key := strconv.Itoa(subjectObject.ID) + " " + subjectObject.Href
+	result, _, _ := subjectUseCase.refreshGroup.Do(key, func() (interface{}, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), contentFetchTimeout)
 		defer cancel()
 
@@ -334,10 +324,10 @@ func resetContent(subjectObject *models.SubjectObject) {
 	subjectObject.ContentUnsupported = false
 }
 
-func (subjectUseCase *SubjectUseCase) DeleteSubjectObject(ctx context.Context, subjectId int, subjectObjectId int) error {
-	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
-	if err != nil {
-		return err
+// notFound replaces gorm's "record not found" with the domain error.
+func notFound(err error, domainErr error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return domainErr
 	}
-	return subjectUseCase.subjectRepo.DeleteSubjectObject(ctx, subjectObject)
+	return err
 }

@@ -1,9 +1,11 @@
 package http
 
 import (
+	"errors"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/kosipov/students/auth"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -18,61 +20,72 @@ func NewHandler(useCase auth.UseCase) *Handler {
 	}
 }
 
+type signInRequest struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+type userResponse struct {
+	UserName string `json:"userName"`
+}
+
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
 func (h *Handler) SignIn(c *gin.Context) {
-	session := sessions.Default(c)
-	login := c.PostForm("login")
-	password := c.PostForm("password")
-
-	if strings.Trim(login, " ") == "" || strings.Trim(password, " ") == "" {
-		c.HTML(http.StatusUnprocessableEntity, "home/login.html", gin.H{
-			"message": "Пустой логин или пароль",
-		})
+	var request signInRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, errorResponse{Error: "Некорректный запрос"})
 		return
 	}
 
-	user, err := h.useCase.SignIn(c.Request.Context(), login, password)
+	login := strings.TrimSpace(request.Login)
+	if login == "" || strings.TrimSpace(request.Password) == "" {
+		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, errorResponse{Error: "Введите логин и пароль"})
+		return
+	}
+
+	user, err := h.useCase.SignIn(c.Request.Context(), login, request.Password)
+	if errors.Is(err, auth.ErrUserNotFound) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse{Error: "Неверный логин или пароль"})
+		return
+	}
 	if err != nil || user == nil {
-		if err == auth.ErrUserNotFound {
-			c.HTML(http.StatusUnauthorized, "home/login.html", gin.H{
-				"message": "Неверный логин или пароль",
-			})
-			return
-		}
-
-		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
-			"message": "Неизвестная ошибка!",
-		})
+		log.Printf("Failed to sign in: %v", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, errorResponse{Error: "Не удалось войти, попробуйте ещё раз"})
 		return
 	}
 
-	session.Set("user_id", user.Id)
-	session.Set("user_name", user.Username)
-
+	session := sessions.Default(c)
+	session.Set(sessionUserIdKey, user.Id)
+	session.Set(sessionUserNameKey, user.Username)
 	if err := session.Save(); err != nil {
-		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
-			"message": "Неизвестная ошибка!",
-		})
+		log.Printf("Failed to save session: %s", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, errorResponse{Error: "Не удалось войти, попробуйте ещё раз"})
 		return
 	}
 
-	c.Redirect(http.StatusSeeOther, "/admin/groups")
+	c.JSON(http.StatusOK, userResponse{UserName: user.Username})
 }
 
 func (h *Handler) SignOut(c *gin.Context) {
 	session := sessions.Default(c)
-	if session.Get("user_id") == nil {
-		// Already signed out, nothing to clear.
-		c.Redirect(http.StatusFound, "/auth/sign-in")
-		return
-	}
 	session.Clear()
-
 	if err := session.Save(); err != nil {
-		c.HTML(http.StatusInternalServerError, "home/login.html", gin.H{
-			"message": "Ошибка выхода",
-		})
+		log.Printf("Failed to save session: %s", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, errorResponse{Error: "Не удалось выйти, попробуйте ещё раз"})
 		return
 	}
+	c.Status(http.StatusNoContent)
+}
 
-	c.Redirect(http.StatusFound, "/auth/sign-in")
+// Me returns the signed in user, or 401 for a guest.
+func (h *Handler) Me(c *gin.Context) {
+	userName, ok := currentUserName(c)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse{Error: "Нужно войти"})
+		return
+	}
+	c.JSON(http.StatusOK, userResponse{UserName: userName})
 }

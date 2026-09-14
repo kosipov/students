@@ -10,9 +10,8 @@ main
 
 # Dependencies and build output are produced inside the image
 node_modules
-templates/dist/*.js
-templates/dist/*.css
-templates/dist/*.txt
+web/node_modules
+web/dist
 
 # Build and deploy files are not needed inside the image
 Dockerfile

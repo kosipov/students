@@ -1,0 +1,40 @@
+/* The site's theme on top of the Industry system: white ground and the green accent,
+   as in the "Студентам - SPA" mockup. */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f3f7f4;
+  --color-text: #16201a;
+  --color-accent: #2f8f63;
+  --color-accent-2: #2f8f63;
+  --color-divider: color-mix(in srgb, #16201a 14%, transparent);
+
+  --color-accent-100: #eef7f1;
+  --color-accent-200: #d5ece0;
+  --color-accent-300: #b0dcc4;
+  --color-accent-400: #84c5a3;
+  --color-accent-500: #55a87f;
+  --color-accent-600: #2a805a;
+  --color-accent-700: #23704d;
+  --color-accent-800: #1a5439;
+  --color-accent-900: #123726;
+
+  --color-accent-2-100: #eef7f1;
+  --color-accent-2-200: #d5ece0;
+  --color-accent-2-300: #b0dcc4;
+  --color-accent-2-400: #84c5a3;
+  --color-accent-2-500: #55a87f;
+  --color-accent-2-600: #2a805a;
+  --color-accent-2-700: #23704d;
+  --color-accent-2-800: #1a5439;
+  --color-accent-2-900: #123726;
+
+  /* Not part of the mockup: errors in forms need a color that doesn't read as the accent. */
+  --color-danger: #b42318;
+
+  --text-muted: color-mix(in srgb, var(--color-text) 55%, transparent);
+  --text-soft: color-mix(in srgb, var(--color-text) 65%, transparent);
+}
+
+body { font-family: "Barlow", system-ui, sans-serif; }
+a { color: var(--color-accent-700); text-decoration: none; }
+a:hover { color: var(--color-accent-800); }

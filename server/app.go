@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
@@ -65,32 +66,30 @@ func (a *App) Run(port string) error {
 		gin.Recovery(),
 		gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/healthz"}}),
 	)
-	router.LoadHTMLGlob("templates/**/*.html")
-	router.Static("/dist", "templates/dist")
-
 	// Liveness probe for container healthcheck. It does not touch the DB on purpose:
 	// a DB outage should not make the orchestrator restart the app in a loop.
 	router.GET("/healthz", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
-	// Set up http handlers
-	// SignUp/SignIn endpoints
-	authhttp.RegisterHTTPEndpoints(router, a.authUC)
-	educationalhttp.RegisterHTTPEndpoints(router, a.subjectUC, a.groupUC)
+	api := router.Group("/api",
+		sessions.Sessions("student-session", newCookieStore([]byte("secret"))),
+		limitRequestBody,
+		requireCSRFHeader,
+	)
+	authhttp.RegisterHTTPEndpoints(api, a.authUC)
+	admin := api.Group("/admin", authhttp.NewAuthMiddleware())
+	educationalhttp.RegisterHTTPEndpoints(api, admin, a.subjectUC, a.groupUC)
 
-	/*	// API endpoints
-		authMiddleware := authhttp.NewAuthMiddleware(a.authUC)
-		api := router.Group("/api", authMiddleware)
-
-		bmhttp.RegisterHTTPEndpoints(api, a.bookmarkUC)*/
+	registerSPA(router, "web/dist")
 
 	// HTTP Server
 	a.httpServer = &http.Server{
-		Addr:           ":" + port,
-		Handler:        router,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		Addr:        ":" + port,
+		Handler:     router,
+		ReadTimeout: 10 * time.Second,
+		// A task that has never been downloaded waits for OneDrive for up to 15 seconds.
+		WriteTimeout:   30 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
