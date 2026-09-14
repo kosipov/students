@@ -270,8 +270,25 @@ func (r *fakeRepo) UpdateSubjectObject(ctx context.Context, subjectObject *model
 	stored.Href = subjectObject.Href
 	stored.Comment = subjectObject.Comment
 	stored.Hidden = subjectObject.Hidden
+	stored.Categories = append([]models.SubjectObjectCategory(nil), subjectObject.Categories...)
 	r.subjectObjects[subjectObject.ID] = stored
 	return nil
+}
+
+func (r *fakeRepo) GetCategoryNames(ctx context.Context) ([]string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	seen := map[string]bool{}
+	var names []string
+	for id := 1; id <= r.nextId; id++ {
+		for _, category := range r.subjectObjects[id].Categories {
+			if !seen[category.Name] {
+				seen[category.Name] = true
+				names = append(names, category.Name)
+			}
+		}
+	}
+	return names, nil
 }
 
 func (r *fakeRepo) UpdateSubjectObjectContent(ctx context.Context, subjectObject *models.SubjectObject) error {

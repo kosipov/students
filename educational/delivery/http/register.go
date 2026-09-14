@@ -31,4 +31,6 @@ func RegisterHTTPEndpoints(api *gin.RouterGroup, admin *gin.RouterGroup, subject
 	admin.DELETE("/tasks/:id", h.DeleteTask)
 	admin.POST("/tasks/:id/refresh", h.RefreshTask)
 	admin.GET("/tasks/:id/preview", h.PreviewTask)
+
+	admin.GET("/categories", h.ListCategories)
 }

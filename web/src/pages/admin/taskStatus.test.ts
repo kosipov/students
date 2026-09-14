@@ -9,6 +9,7 @@ const base: AdminTask = {
   href: 'https://1drv.ms/t/c/1/abc',
   comment: '',
   hidden: false,
+  categories: [],
   isDocument: true,
   contentUnsupported: false,
   fetchedAt: null,

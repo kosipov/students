@@ -34,6 +34,7 @@ func (subjectRepo *SubjectRepository) GetSubjectWithSubjectObjects(ctx context.C
 		Preload("SubjectObjects", func(db *gorm.DB) *gorm.DB {
 			return db.Select(subjectObjectListColumns).Order("id")
 		}).
+		Preload("SubjectObjects.Categories", orderById).
 		First(&subject, id)
 	return &subject, result.Error
 }
@@ -53,7 +54,7 @@ func (subjectRepo *SubjectRepository) DeleteSubject(ctx context.Context, subject
 	}
 
 	return subjectRepo.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("subject_id = ?", subject.ID).Delete(&models.SubjectObject{}).Error; err != nil {
+		if err := deleteSubjectObjectsOfSubjects(tx, []int{subject.ID}); err != nil {
 			return err
 		}
 		return tx.Where("id = ?", subject.ID).Delete(&models.Subject{}).Error
@@ -62,24 +63,39 @@ func (subjectRepo *SubjectRepository) DeleteSubject(ctx context.Context, subject
 
 func (subjectRepo *SubjectRepository) GetSubjectObject(ctx context.Context, subjectObjectId int) (*models.SubjectObject, error) {
 	var subjectObject models.SubjectObject
-	result := subjectRepo.db.First(&subjectObject, subjectObjectId)
+	result := subjectRepo.db.Preload("Categories", orderById).First(&subjectObject, subjectObjectId)
 	return &subjectObject, result.Error
 }
 
 func (subjectRepo *SubjectRepository) CreateSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
-	return subjectRepo.db.Create(subjectObject).Error
+	return subjectRepo.db.Transaction(func(tx *gorm.DB) error {
+		// Categories are created explicitly below, not by gorm's association saving.
+		if err := tx.Set("gorm:save_associations", false).Create(subjectObject).Error; err != nil {
+			return err
+		}
+		return createCategories(tx, subjectObject)
+	})
 }
 
 // Updates below target a bare model with the id only: gorm would otherwise save
 // associations loaded into the passed struct back to the database.
 
 func (subjectRepo *SubjectRepository) UpdateSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
-	return subjectRepo.db.Model(&models.SubjectObject{ID: subjectObject.ID}).Updates(map[string]interface{}{
-		"name":    subjectObject.Name,
-		"href":    subjectObject.Href,
-		"comment": subjectObject.Comment,
-		"hidden":  subjectObject.Hidden,
-	}).Error
+	return subjectRepo.db.Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(&models.SubjectObject{ID: subjectObject.ID}).Updates(map[string]interface{}{
+			"name":    subjectObject.Name,
+			"href":    subjectObject.Href,
+			"comment": subjectObject.Comment,
+			"hidden":  subjectObject.Hidden,
+		}).Error
+		if err != nil {
+			return err
+		}
+		if err := tx.Where("subject_object_id = ?", subjectObject.ID).Delete(&models.SubjectObjectCategory{}).Error; err != nil {
+			return err
+		}
+		return createCategories(tx, subjectObject)
+	})
 }
 
 // UpdateSubjectObjectContent stores the document only while the subject object still has the same link,
@@ -102,5 +118,49 @@ func (subjectRepo *SubjectRepository) DeleteSubjectObject(ctx context.Context, s
 		// gorm deletes every row when the primary key is blank.
 		return errors.New("delete subject object: empty id")
 	}
-	return subjectRepo.db.Where("id = ?", subjectObject.ID).Delete(&models.SubjectObject{}).Error
+	return subjectRepo.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("subject_object_id = ?", subjectObject.ID).Delete(&models.SubjectObjectCategory{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("id = ?", subjectObject.ID).Delete(&models.SubjectObject{}).Error
+	})
+}
+
+func (subjectRepo *SubjectRepository) GetCategoryNames(ctx context.Context) ([]string, error) {
+	var names []string
+	err := subjectRepo.db.Raw("SELECT DISTINCT name FROM subject_object_categories ORDER BY name").Pluck("name", &names).Error
+	return names, err
+}
+
+func createCategories(tx *gorm.DB, subjectObject *models.SubjectObject) error {
+	for i := range subjectObject.Categories {
+		category := &subjectObject.Categories[i]
+		category.ID = 0
+		category.SubjectObjectId = subjectObject.ID
+		if err := tx.Create(category).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// deleteSubjectObjectsOfSubjects deletes subject objects of the subjects with their categories.
+func deleteSubjectObjectsOfSubjects(tx *gorm.DB, subjectIds []int) error {
+	if len(subjectIds) == 0 {
+		return nil
+	}
+	var subjectObjectIds []int
+	if err := tx.Model(&models.SubjectObject{}).Where("subject_id IN (?)", subjectIds).Pluck("id", &subjectObjectIds).Error; err != nil {
+		return err
+	}
+	if len(subjectObjectIds) > 0 {
+		if err := tx.Where("subject_object_id IN (?)", subjectObjectIds).Delete(&models.SubjectObjectCategory{}).Error; err != nil {
+			return err
+		}
+	}
+	return tx.Where("subject_id IN (?)", subjectIds).Delete(&models.SubjectObject{}).Error
+}
+
+func orderById(db *gorm.DB) *gorm.DB {
+	return db.Order("id")
 }

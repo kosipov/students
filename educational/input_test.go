@@ -62,3 +62,19 @@ func TestPatchNormalizeSkipsUnsetFields(t *testing.T) {
 		t.Errorf("GroupPatch.Normalize() = %q, %v; want trimmed name", *groupPatch.Name, err)
 	}
 }
+
+func TestCategoriesNormalize(t *testing.T) {
+	input := SubjectObjectInput{Name: "Задание", Categories: []string{"  Курсовые   работы ", "курсовые работы", "Всё", "все", "", "Методички"}}
+	if err := input.Normalize(); err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
+	if got := strings.Join(input.Categories, "|"); got != "Курсовые работы|Всё|Методички" {
+		t.Errorf("Categories = %q, want spaces collapsed and repeats in any case or ё dropped", got)
+	}
+
+	long := SubjectObjectInput{Name: "Задание", Categories: []string{strings.Repeat("я", MaxCategoryLength+1)}}
+	var validationErr *ValidationError
+	if err := long.Normalize(); !errors.As(err, &validationErr) || validationErr.Fields["categories"] == "" {
+		t.Errorf("Normalize() with a long category error = %v, want categories error", err)
+	}
+}

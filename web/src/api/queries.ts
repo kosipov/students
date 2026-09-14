@@ -26,6 +26,7 @@ export const queryKeys = {
   group: (id: number) => ['admin', 'group', id] as const,
   subject: (id: number) => ['admin', 'subject', id] as const,
   preview: (id: number) => ['admin', 'preview', id] as const,
+  categories: ['admin', 'categories'] as const,
 }
 
 // Student
@@ -100,6 +101,14 @@ export function useAdminSubject(id: number) {
 
 export function usePreviewTask(id: number) {
   return useQuery({ queryKey: queryKeys.preview(id), queryFn: () => api.get<Task>(`/admin/tasks/${id}/preview`) })
+}
+
+/** Category names already in use, suggested in the task form. */
+export function useCategories() {
+  return useQuery({
+    queryKey: queryKeys.categories,
+    queryFn: async () => (await api.get<{ categories: string[] }>('/admin/categories')).categories,
+  })
 }
 
 /** Any change in the admin panel may affect every admin screen and what students see. */

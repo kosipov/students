@@ -12,6 +12,7 @@ export interface CatalogTask {
   href: string
   /** Shown as a page on the site; other tasks are opened by href. */
   isDocument: boolean
+  categories: string[]
 }
 
 export interface CatalogSubject {
@@ -70,6 +71,7 @@ export interface AdminTask {
   href: string
   comment: string
   hidden: boolean
+  categories: string[]
   isDocument: boolean
   contentUnsupported: boolean
   fetchedAt: string | null
@@ -122,4 +124,6 @@ export interface TaskInput {
   href?: string
   comment?: string
   hidden?: boolean
+  /** Replaces all categories of the task. */
+  categories?: string[]
 }

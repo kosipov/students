@@ -6,7 +6,7 @@ import type { CatalogTask } from '../api/types'
 import { Modal } from './Modal'
 import { TaskLink } from './TaskLink'
 
-const task: CatalogTask = { id: 7, name: 'Темы', comment: '', href: 'https://1drv.ms/t/c/1/abc', isDocument: true }
+const task: CatalogTask = { id: 7, name: 'Темы', comment: '', href: 'https://1drv.ms/t/c/1/abc', isDocument: true, categories: [] }
 
 describe('TaskLink', () => {
   it('opens a document as a page on the site', () => {

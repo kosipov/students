@@ -37,3 +37,27 @@ export function searchTasks(catalog: Catalog, query: string): SearchResult[] {
   }
   return results
 }
+
+/** Treats "Курсовые" and "курсовые" (and "ё"/"е") as one category, like the server does. */
+export function categoryKey(name: string): string {
+  return normalizeForSearch(name)
+}
+
+/** Categories used by the tasks, each once, sorted alphabetically. */
+export function categoriesOf(tasks: CatalogTask[]): string[] {
+  const byKey = new Map<string, string>()
+  for (const task of tasks) {
+    for (const category of task.categories) {
+      const key = categoryKey(category)
+      if (!byKey.has(key)) byKey.set(key, category)
+    }
+  }
+  return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b, 'ru'))
+}
+
+/** Tasks with the category; all tasks when no category is chosen. */
+export function filterByCategory(tasks: CatalogTask[], category: string | null): CatalogTask[] {
+  if (!category) return tasks
+  const key = categoryKey(category)
+  return tasks.filter((task) => task.categories.some((c) => categoryKey(c) === key))
+}

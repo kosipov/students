@@ -6,8 +6,13 @@ import (
 	"unicode/utf8"
 )
 
-// maxFieldLength matches the varchar(255) columns the fields are stored in.
-const maxFieldLength = 255
+const (
+	// maxFieldLength matches the varchar(255) columns the fields are stored in.
+	maxFieldLength = 255
+	// MaxCategoryLength fits the varchar(100) column with room to spare for the unique index.
+	MaxCategoryLength = 50
+	MaxCategories     = 10
+)
 
 type GroupInput struct {
 	Name   string
@@ -25,10 +30,11 @@ type SubjectInput struct {
 }
 
 type SubjectObjectInput struct {
-	Name    string
-	Href    string
-	Comment string
-	Hidden  bool
+	Name       string
+	Href       string
+	Comment    string
+	Hidden     bool
+	Categories []string
 }
 
 // SubjectObjectPatch changes only the fields that are set.
@@ -37,6 +43,8 @@ type SubjectObjectPatch struct {
 	Href    *string
 	Comment *string
 	Hidden  *bool
+	// Categories replaces all categories of the subject object when set.
+	Categories *[]string
 }
 
 // Normalize trims the fields and validates them.
@@ -66,6 +74,7 @@ func (in *SubjectObjectInput) Normalize() error {
 	in.Name = v.name("name", in.Name)
 	in.Href = v.href("href", in.Href)
 	in.Comment = v.text("comment", in.Comment)
+	in.Categories = v.categories("categories", in.Categories)
 	return v.err()
 }
 
@@ -83,7 +92,17 @@ func (p *SubjectObjectPatch) Normalize() error {
 		comment := v.text("comment", *p.Comment)
 		p.Comment = &comment
 	}
+	if p.Categories != nil {
+		categories := v.categories("categories", *p.Categories)
+		p.Categories = &categories
+	}
 	return v.err()
+}
+
+// CategoryKey identifies a category regardless of letter case and "ё", so "Курсовые" and "курсовые"
+// are one category.
+func CategoryKey(name string) string {
+	return strings.ReplaceAll(strings.ToLower(name), "ё", "е")
 }
 
 // IsSafeHref reports whether href can be put into a link: an absolute http(s) URL.
@@ -124,6 +143,32 @@ func (v *validator) href(field, value string) string {
 		v.fail(field, "Укажите ссылку, которая начинается с http:// или https://")
 	}
 	return v.limit(field, value)
+}
+
+// categories collapses spaces, drops empty names and repeats (in any letter case) and keeps the order.
+func (v *validator) categories(field string, values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
+	for _, value := range values {
+		name := strings.Join(strings.Fields(value), " ")
+		if name == "" {
+			continue
+		}
+		if utf8.RuneCountInString(name) > MaxCategoryLength {
+			v.fail(field, "Название категории — не больше 50 символов")
+			continue
+		}
+		key := CategoryKey(name)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		result = append(result, name)
+	}
+	if len(result) > MaxCategories {
+		v.fail(field, "Не больше 10 категорий у одного задания")
+	}
+	return result
 }
 
 func (v *validator) limit(field, value string) string {

@@ -1,7 +1,16 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError } from '../../api/client'
-import { useCreateGroup, useCreateSubject, useCreateTask, useUpdateGroup, useUpdateSubject, useUpdateTask } from '../../api/queries'
+import {
+  useCategories,
+  useCreateGroup,
+  useCreateSubject,
+  useCreateTask,
+  useUpdateGroup,
+  useUpdateSubject,
+  useUpdateTask,
+} from '../../api/queries'
 import type { AdminGroup, AdminSubject, AdminTask } from '../../api/types'
+import { addCategories, CategoriesField } from '../../components/CategoriesField'
 import { Modal } from '../../components/Modal'
 import { TextField } from '../../components/TextField'
 import { useToast } from '../../components/Toast'
@@ -127,10 +136,17 @@ export function TaskDialog({ subjectId, task, onClose }: { subjectId: number; ta
   const [href, setHref] = useState(task?.href ?? '')
   const [comment, setComment] = useState(task?.comment ?? '')
   const [visible, setVisible] = useState(task ? !task.hidden : true)
+  const [categories, setCategories] = useState<string[]>(task?.categories ?? [])
+  const [categoryDraft, setCategoryDraft] = useState('')
+  const suggestions = useCategories()
   const errors = fieldErrors(mutation.error)
 
   const save = () => {
-    const input = { name, href, comment, hidden: !visible }
+    // A category typed without pressing Enter is saved too.
+    const allCategories = addCategories(categories, categoryDraft)
+    setCategories(allCategories)
+    setCategoryDraft('')
+    const input = { name, href, comment, hidden: !visible, categories: allCategories }
     const onSuccess = () => {
       toast('Сохранено')
       onClose()
@@ -164,6 +180,15 @@ export function TaskDialog({ subjectId, task, onClose }: { subjectId: number; ta
         onChange={setComment}
         error={errors.comment}
         maxLength={255}
+      />
+      <CategoriesField
+        label="Категории"
+        value={categories}
+        onChange={setCategories}
+        draft={categoryDraft}
+        onDraftChange={setCategoryDraft}
+        suggestions={suggestions.data ?? []}
+        error={errors.categories}
       />
       <VisibleCheckbox checked={visible} onChange={setVisible} />
     </FormDialog>

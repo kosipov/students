@@ -35,7 +35,8 @@ type catalogTask struct {
 	Comment string `json:"comment"`
 	Href    string `json:"href"`
 	// IsDocument marks tasks shown as a page on the site; other tasks are opened by href.
-	IsDocument bool `json:"isDocument"`
+	IsDocument bool     `json:"isDocument"`
+	Categories []string `json:"categories"`
 }
 
 type taskResponse struct {
@@ -76,6 +77,7 @@ type adminTask struct {
 	Href               string     `json:"href"`
 	Comment            string     `json:"comment"`
 	Hidden             bool       `json:"hidden"`
+	Categories         []string   `json:"categories"`
 	IsDocument         bool       `json:"isDocument"`
 	ContentUnsupported bool       `json:"contentUnsupported"`
 	FetchedAt          *time.Time `json:"fetchedAt"`
@@ -133,10 +135,15 @@ type subjectRequest struct {
 }
 
 type taskRequest struct {
-	Name    *string `json:"name"`
-	Href    *string `json:"href"`
-	Comment *string `json:"comment"`
-	Hidden  *bool   `json:"hidden"`
+	Name       *string   `json:"name"`
+	Href       *string   `json:"href"`
+	Comment    *string   `json:"comment"`
+	Hidden     *bool     `json:"hidden"`
+	Categories *[]string `json:"categories"`
+}
+
+type categoriesResponse struct {
+	Categories []string `json:"categories"`
 }
 
 // Mapping
@@ -186,6 +193,7 @@ func (h *Handler) toAdminTask(subjectObject *models.SubjectObject) adminTask {
 		Href:               safeHref(subjectObject.Href),
 		Comment:            subjectObject.Comment,
 		Hidden:             subjectObject.Hidden,
+		Categories:         subjectObject.CategoryNames(),
 		IsDocument:         h.subjectUseCase.IsDocument(subjectObject),
 		ContentUnsupported: subjectObject.ContentUnsupported,
 		FetchedAt:          subjectObject.ContentFetchedAt,

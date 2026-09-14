@@ -5,6 +5,8 @@ import (
 	"errors"
 	"github.com/kosipov/students/educational"
 	"github.com/kosipov/students/models"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -431,5 +433,77 @@ func waitFor(t *testing.T, condition func() bool) {
 			t.Fatal("condition was not met in time")
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// Categories
+
+func TestCreateSubjectObjectWithCategories(t *testing.T) {
+	uc, repo := newTestUseCase(models.SubjectObject{
+		ID:         1,
+		Categories: []models.SubjectObjectCategory{{Name: "Курсовые"}},
+	}, &fakeFetcher{})
+
+	subjectObject, err := uc.CreateSubjectObject(context.Background(), testSubjectId, educational.SubjectObjectInput{
+		Name:       "Методичка",
+		Categories: []string{" методички ", "курсовые", "Курсовые", ""},
+	})
+	if err != nil {
+		t.Fatalf("CreateSubjectObject() error = %v", err)
+	}
+
+	// "курсовые" takes the spelling already in use, repeats and empty names are dropped.
+	got := repo.stored(subjectObject.ID).CategoryNames()
+	if strings.Join(got, ",") != "методички,Курсовые" {
+		t.Errorf("categories = %q, want [методички Курсовые]", got)
+	}
+}
+
+func TestUpdateSubjectObjectCategories(t *testing.T) {
+	uc, repo := newTestUseCase(models.SubjectObject{
+		ID:         1,
+		Name:       "Задание",
+		Categories: []models.SubjectObjectCategory{{Name: "Курсовые"}, {Name: "Методички"}},
+	}, &fakeFetcher{})
+	ctx := context.Background()
+
+	// Categories are kept when the patch doesn't touch them.
+	name := "Задание 2"
+	if _, err := uc.UpdateSubjectObject(ctx, 1, educational.SubjectObjectPatch{Name: &name}); err != nil {
+		t.Fatalf("UpdateSubjectObject() error = %v", err)
+	}
+	if got := strings.Join(repo.stored(1).CategoryNames(), ","); got != "Курсовые,Методички" {
+		t.Errorf("categories after name change = %q, want them kept", got)
+	}
+
+	categories := []string{"Лабораторные"}
+	updated, err := uc.UpdateSubjectObject(ctx, 1, educational.SubjectObjectPatch{Categories: &categories})
+	if err != nil {
+		t.Fatalf("UpdateSubjectObject() error = %v", err)
+	}
+	if got := strings.Join(repo.stored(1).CategoryNames(), ","); got != "Лабораторные" || strings.Join(updated.CategoryNames(), ",") != got {
+		t.Errorf("categories = %q, want replaced with [Лабораторные]", got)
+	}
+
+	none := []string{}
+	if _, err := uc.UpdateSubjectObject(ctx, 1, educational.SubjectObjectPatch{Categories: &none}); err != nil {
+		t.Fatalf("UpdateSubjectObject() error = %v", err)
+	}
+	if got := repo.stored(1).CategoryNames(); len(got) != 0 {
+		t.Errorf("categories = %q, want cleared", got)
+	}
+}
+
+func TestSubjectObjectCategoriesValidation(t *testing.T) {
+	uc, _ := newTestUseCase(models.SubjectObject{ID: 1}, &fakeFetcher{})
+
+	tooMany := make([]string, educational.MaxCategories+1)
+	for i := range tooMany {
+		tooMany[i] = "Категория " + strconv.Itoa(i)
+	}
+	_, err := uc.UpdateSubjectObject(context.Background(), 1, educational.SubjectObjectPatch{Categories: &tooMany})
+	var validationErr *educational.ValidationError
+	if !errors.As(err, &validationErr) || validationErr.Fields["categories"] == "" {
+		t.Fatalf("UpdateSubjectObject() error = %v, want categories error", err)
 	}
 }

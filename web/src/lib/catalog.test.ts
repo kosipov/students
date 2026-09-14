@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Catalog } from '../api/types'
-import { countTasks, searchTasks } from './catalog'
+import { categoriesOf, countTasks, filterByCategory, searchTasks } from './catalog'
 
 const catalog: Catalog = {
   groups: [
@@ -12,8 +12,8 @@ const catalog: Catalog = {
           id: 10,
           name: 'Проектирование веб-приложений',
           tasks: [
-            { id: 100, name: 'Темы курсовых работ', comment: '', href: 'https://1drv.ms/t/c/1', isDocument: true },
-            { id: 101, name: 'Требования к записке', comment: '', href: 'https://example.com', isDocument: false },
+            { id: 100, name: 'Темы курсовых работ', comment: '', href: 'https://1drv.ms/t/c/1', isDocument: true, categories: [] },
+            { id: 101, name: 'Требования к записке', comment: '', href: 'https://example.com', isDocument: false, categories: [] },
           ],
         },
       ],
@@ -25,7 +25,7 @@ const catalog: Catalog = {
         {
           id: 20,
           name: 'Поисковая оптимизация',
-          tasks: [{ id: 200, name: 'Лабораторная работа №1', comment: '', href: '', isDocument: false }],
+          tasks: [{ id: 200, name: 'Лабораторная работа №1', comment: '', href: '', isDocument: false, categories: [] }],
         },
       ],
     },
@@ -52,5 +52,23 @@ describe('searchTasks', () => {
 describe('countTasks', () => {
   it('counts tasks of all subjects', () => {
     expect(countTasks(catalog.groups[0]!)).toBe(2)
+  })
+})
+
+describe('categories', () => {
+  const tasks = [
+    { id: 1, name: 'Темы', comment: '', href: '', isDocument: false, categories: ['Курсовые'] },
+    { id: 2, name: 'Методичка', comment: '', href: '', isDocument: false, categories: ['Методички', 'курсовые'] },
+    { id: 3, name: 'Лаба', comment: '', href: '', isDocument: false, categories: [] },
+  ]
+
+  it('lists each category once regardless of letter case, sorted', () => {
+    expect(categoriesOf(tasks)).toEqual(['Курсовые', 'Методички'])
+  })
+
+  it('filters tasks by category regardless of letter case', () => {
+    expect(filterByCategory(tasks, 'КУРСОВЫЕ').map((t) => t.id)).toEqual([1, 2])
+    expect(filterByCategory(tasks, 'Методички').map((t) => t.id)).toEqual([2])
+    expect(filterByCategory(tasks, null).map((t) => t.id)).toEqual([1, 2, 3])
   })
 })

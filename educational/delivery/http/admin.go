@@ -205,6 +205,9 @@ func (h *Handler) CreateTask(c *gin.Context) {
 	if request.Hidden != nil {
 		input.Hidden = *request.Hidden
 	}
+	if request.Categories != nil {
+		input.Categories = *request.Categories
+	}
 	subjectObject, err := h.subjectUseCase.CreateSubjectObject(c.Request.Context(), subjectId, input)
 	if err != nil {
 		respondError(c, err)
@@ -224,10 +227,11 @@ func (h *Handler) UpdateTask(c *gin.Context) {
 	}
 
 	subjectObject, err := h.subjectUseCase.UpdateSubjectObject(c.Request.Context(), id, educational.SubjectObjectPatch{
-		Name:    request.Name,
-		Href:    request.Href,
-		Comment: request.Comment,
-		Hidden:  request.Hidden,
+		Name:       request.Name,
+		Href:       request.Href,
+		Comment:    request.Comment,
+		Hidden:     request.Hidden,
+		Categories: request.Categories,
 	})
 	if err != nil {
 		respondError(c, err)
@@ -246,6 +250,19 @@ func (h *Handler) DeleteTask(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// ListCategories returns category names in use, for suggestions in the task form.
+func (h *Handler) ListCategories(c *gin.Context) {
+	names, err := h.subjectUseCase.GetCategoryNames(c.Request.Context())
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	if names == nil {
+		names = []string{}
+	}
+	c.JSON(http.StatusOK, categoriesResponse{Categories: names})
 }
 
 // RefreshTask downloads the document again. A failed download is not an error of the request:

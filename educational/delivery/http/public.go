@@ -37,6 +37,7 @@ func (h *Handler) Catalog(c *gin.Context) {
 					Comment:    subjectObject.Comment,
 					Href:       safeHref(subjectObject.Href),
 					IsDocument: h.subjectUseCase.IsDocument(subjectObject),
+					Categories: subjectObject.CategoryNames(),
 				})
 			}
 			catalogGroup.Subjects = append(catalogGroup.Subjects, catalogSubject)

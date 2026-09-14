@@ -10,7 +10,8 @@ type SubjectObject struct {
 	SubjectId int
 	Subject   Subject
 	// Hidden subject objects are shown only in the admin panel.
-	Hidden bool `gorm:"not null;default:false"`
+	Hidden     bool                    `gorm:"not null;default:false"`
+	Categories []SubjectObjectCategory `gorm:"foreignkey:SubjectObjectId"`
 
 	// Stored copy of the markdown document Href points to (e.g. a file shared from OneDrive).
 	// It is shown to students even when the source becomes unavailable.

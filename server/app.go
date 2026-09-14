@@ -130,6 +130,7 @@ func InitDB() *gorm.DB {
 		&models.Group{},
 		&models.Subject{},
 		&models.SubjectObject{},
+		&models.SubjectObjectCategory{},
 	)
 
 	return client

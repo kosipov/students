@@ -91,12 +91,18 @@ func (subjectUseCase *SubjectUseCase) CreateSubjectObject(ctx context.Context, s
 		return nil, err
 	}
 
+	categories, err := subjectUseCase.toCategories(ctx, input.Categories)
+	if err != nil {
+		return nil, err
+	}
+
 	subjectObject := &models.SubjectObject{
-		SubjectId: subjectId,
-		Name:      input.Name,
-		Href:      input.Href,
-		Comment:   input.Comment,
-		Hidden:    input.Hidden,
+		SubjectId:  subjectId,
+		Name:       input.Name,
+		Href:       input.Href,
+		Comment:    input.Comment,
+		Hidden:     input.Hidden,
+		Categories: categories,
 	}
 	if err := subjectUseCase.subjectRepo.CreateSubjectObject(ctx, subjectObject); err != nil {
 		return nil, err
@@ -128,6 +134,13 @@ func (subjectUseCase *SubjectUseCase) UpdateSubjectObject(ctx context.Context, i
 	}
 	if patch.Hidden != nil {
 		subjectObject.Hidden = *patch.Hidden
+	}
+	if patch.Categories != nil {
+		categories, err := subjectUseCase.toCategories(ctx, *patch.Categories)
+		if err != nil {
+			return nil, err
+		}
+		subjectObject.Categories = categories
 	}
 
 	if err := subjectUseCase.subjectRepo.UpdateSubjectObject(ctx, subjectObject); err != nil {
@@ -164,6 +177,38 @@ func (subjectUseCase *SubjectUseCase) RefreshSubjectObjectContent(ctx context.Co
 	}
 
 	return subjectUseCase.refreshContent(*subjectObject, true), nil
+}
+
+func (subjectUseCase *SubjectUseCase) GetCategoryNames(ctx context.Context) ([]string, error) {
+	return subjectUseCase.subjectRepo.GetCategoryNames(ctx)
+}
+
+// toCategories turns normalized names into categories. A name that already exists in another
+// letter case takes the existing spelling, so students see one filter instead of two.
+func (subjectUseCase *SubjectUseCase) toCategories(ctx context.Context, names []string) ([]models.SubjectObjectCategory, error) {
+	if len(names) == 0 {
+		return []models.SubjectObjectCategory{}, nil
+	}
+
+	existing, err := subjectUseCase.subjectRepo.GetCategoryNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	spelling := make(map[string]string, len(existing))
+	for _, name := range existing {
+		if _, ok := spelling[educational.CategoryKey(name)]; !ok {
+			spelling[educational.CategoryKey(name)] = name
+		}
+	}
+
+	categories := make([]models.SubjectObjectCategory, 0, len(names))
+	for _, name := range names {
+		if known, ok := spelling[educational.CategoryKey(name)]; ok {
+			name = known
+		}
+		categories = append(categories, models.SubjectObjectCategory{Name: name})
+	}
+	return categories, nil
 }
 
 func (subjectUseCase *SubjectUseCase) IsDocument(subjectObject *models.SubjectObject) bool {

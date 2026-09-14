@@ -18,6 +18,8 @@ type CommonSubjectUseCase interface {
 	UpdateSubjectObject(ctx context.Context, id int, patch SubjectObjectPatch) (*models.SubjectObject, error)
 	DeleteSubjectObject(ctx context.Context, id int) error
 	RefreshSubjectObjectContent(ctx context.Context, id int) (*models.SubjectObject, error)
+	// GetCategoryNames returns the distinct names of categories in use, for suggestions in the admin panel.
+	GetCategoryNames(ctx context.Context) ([]string, error)
 	// IsDocument reports whether the subject object is shown as a page on the site.
 	IsDocument(subjectObject *models.SubjectObject) bool
 

@@ -85,6 +85,11 @@ export function SubjectPage() {
                   <div className="task-row-head">
                     <span className="task-row-name">{task.name}</span>
                     <span className={`tag ${task.hidden ? 'tag-neutral' : 'tag-accent'}`}>{task.hidden ? 'Скрыто' : 'Видно'}</span>
+                    {task.categories.map((category) => (
+                      <span key={category} className="tag tag-outline">
+                        {category}
+                      </span>
+                    ))}
                   </div>
                   <div className="task-row-href">{task.href || 'ссылка не указана'}</div>
                   {task.comment && <div className="task-row-comment">{task.comment}</div>}

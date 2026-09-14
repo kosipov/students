@@ -59,7 +59,7 @@ func (g *GroupRepository) DeleteGroup(ctx context.Context, group *models.Group) 
 			return err
 		}
 		if len(subjectIds) > 0 {
-			if err := tx.Where("subject_id IN (?)", subjectIds).Delete(&models.SubjectObject{}).Error; err != nil {
+			if err := deleteSubjectObjectsOfSubjects(tx, subjectIds); err != nil {
 				return err
 			}
 			if err := tx.Where("id IN (?)", subjectIds).Delete(&models.Subject{}).Error; err != nil {
@@ -86,5 +86,6 @@ func preloadSubjects(db *gorm.DB, onlyVisible bool) *gorm.DB {
 				db = db.Where("hidden = ?", false)
 			}
 			return db
-		})
+		}).
+		Preload("Subjects.SubjectObjects.Categories", orderById)
 }
