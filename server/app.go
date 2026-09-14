@@ -10,6 +10,7 @@ import (
 	"github.com/kosipov/students/auth"
 	"github.com/kosipov/students/educational"
 	"github.com/kosipov/students/models"
+	"github.com/kosipov/students/onedrive"
 	"github.com/spf13/viper"
 	"log"
 	"net/http"
@@ -52,7 +53,7 @@ func NewApp() *App {
 		),
 		groupUC: educationalusecase.NewGroupUseCase(
 			groupRepo),
-		subjectUC: educationalusecase.NewSubjectUseCase(subjectRepo),
+		subjectUC: educationalusecase.NewSubjectUseCase(subjectRepo, onedrive.NewClient()),
 	}
 }
 
@@ -117,7 +118,8 @@ func InitDB() *gorm.DB {
 	pass := viperEnvVariable("MYSQL_PASSWORD")
 	host := viperEnvVariable("MYSQL_HOST")
 	dbname := viperEnvVariable("MYSQL_DBNAME")
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s", user, pass, host, dbname)
+	// parseTime is required to scan DATETIME columns into time.Time.
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true", user, pass, host, dbname)
 
 	client, err := gorm.Open("mysql", dsn)
 	if err != nil {

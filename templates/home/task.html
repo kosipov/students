@@ -1,0 +1,61 @@
+{{ define "home/task.html" }}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{ .subjectObject.Name }} — Студентам</title>
+    <link rel='stylesheet' href='/dist/style.css'>
+    <style>
+        .markdown-body {
+            overflow-wrap: break-word;
+        }
+
+        .markdown-body table {
+            display: block;
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+            border-collapse: collapse;
+        }
+
+        .markdown-body th,
+        .markdown-body td {
+            padding: .5rem .75rem;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+        }
+
+        .markdown-body thead th {
+            background-color: #f8f9fa;
+        }
+
+        .markdown-body img {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<main role="main" class="container py-4">
+    <a href="/">&larr; Все задания</a>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mt-3">
+        <h1 class="h3 mb-2 mr-3">{{ .subjectObject.Name }}</h1>
+        <a href="{{ .subjectObject.Href }}" class="btn btn-outline-primary btn-sm mb-2" target="_blank" rel="noopener">
+            Открыть в OneDrive
+        </a>
+    </div>
+
+    {{ if .content }}
+    <article class="markdown-body my-3 p-3 bg-white rounded shadow-sm">
+        {{ .content }}
+    </article>
+    {{ else }}
+    <div class="alert alert-warning my-3" role="alert">
+        Не удалось загрузить задание. Попробуйте позже или откройте его в OneDrive.
+    </div>
+    {{ end }}
+</main>
+</body>
+</html>
+{{ end }}

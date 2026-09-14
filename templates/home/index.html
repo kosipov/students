@@ -37,7 +37,7 @@
                             </p>
                             <div class="list-group">
                                 {{ range .SubjectObjects }}
-                                    <a href="{{ .Href }}"
+                                    <a href="/tasks/{{ .ID }}"
                                        class="list-group-item list-group-item-action" target="_blank">{{ .Name }}</a>
                                 {{ end }}
                             </div>

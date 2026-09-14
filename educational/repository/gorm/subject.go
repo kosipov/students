@@ -62,6 +62,17 @@ func (subjectRepo *SubjectRepository) UpdateSubjectObject(ctx context.Context, s
 	}).Error
 }
 
+func (subjectRepo *SubjectRepository) UpdateSubjectObjectContent(ctx context.Context, subjectObject *models.SubjectObject) error {
+	return subjectRepo.db.Model(subjectObject).Updates(map[string]interface{}{
+		"content":             subjectObject.Content,
+		"content_etag":        subjectObject.ContentETag,
+		"content_fetched_at":  subjectObject.ContentFetchedAt,
+		"content_checked_at":  subjectObject.ContentCheckedAt,
+		"content_error":       subjectObject.ContentError,
+		"content_unsupported": subjectObject.ContentUnsupported,
+	}).Error
+}
+
 func (subjectRepo *SubjectRepository) DeleteSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
 	return subjectRepo.db.Delete(subjectObject).Error
 }

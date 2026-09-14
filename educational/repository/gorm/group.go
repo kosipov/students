@@ -16,7 +16,13 @@ func NewGroupRepository(db *gorm.DB) *GroupRepository {
 
 func (g *GroupRepository) GetGroups(ctx context.Context) (*[]models.Group, error) {
 	var groups []models.Group
-	result := g.db.Preload("Subjects.SubjectObjects").Find(&groups)
+	// Stored documents are not needed for lists, so they are not loaded.
+	result := g.db.
+		Preload("Subjects").
+		Preload("Subjects.SubjectObjects", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id, name, comment, href, subject_id")
+		}).
+		Find(&groups)
 	return &groups, result.Error
 }
 

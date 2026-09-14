@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/kosipov/students/educational"
+	"github.com/kosipov/students/markdown"
 	"github.com/kosipov/students/models"
 	"net/http"
 	"strconv"
@@ -200,11 +201,99 @@ func (h *Handler) ListHtmlSubjectObject(c *gin.Context) {
 		return
 	}
 
+	subjectObjects := make([]subjectObjectItem, len(*subjectObjectList))
+	for i := range *subjectObjectList {
+		subjectObject := &(*subjectObjectList)[i]
+		subjectObjects[i] = subjectObjectItem{
+			SubjectObject: subjectObject,
+			IsDocument:    h.useCase.IsDocument(subjectObject),
+		}
+	}
+
 	c.HTML(http.StatusOK, "admin/subject_objects.html", gin.H{
 		"userName":          userName,
-		"subjectObjectList": subjectObjectList,
+		"subjectObjectList": subjectObjects,
 		"subjectId":         subjectId,
 	})
+}
+
+// subjectObjectItem is a subject object in the admin list.
+type subjectObjectItem struct {
+	*models.SubjectObject
+	// IsDocument marks links shown as a page on the site, which have a download status.
+	IsDocument bool
+}
+
+// TaskPage shows the document a subject object links to. Links that can't be shown
+// on the site are redirected to as is.
+func (h *Handler) TaskPage(c *gin.Context) {
+	subjectObjectId, err := strconv.Atoi(c.Param("subject_object_id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	subjectObject, err := h.useCase.GetTask(c.Request.Context(), subjectObjectId)
+	switch {
+	case errors.Is(err, educational.ErrSubjectObjectNotDocument):
+		if subjectObject.Href == "" {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		c.Redirect(http.StatusFound, subjectObject.Href)
+		return
+	case errors.Is(err, educational.ErrSubjectObjectNotFound):
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	case err != nil:
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	if subjectObject.Content == "" {
+		// The document has never been downloaded successfully.
+		c.HTML(http.StatusBadGateway, "home/task.html", gin.H{
+			"subjectObject": subjectObject,
+		})
+		return
+	}
+
+	content, err := markdown.Render([]byte(subjectObject.Content))
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.HTML(http.StatusOK, "home/task.html", gin.H{
+		"subjectObject": subjectObject,
+		"content":       content,
+	})
+}
+
+func (h *Handler) RefreshSubjectObjectContent(c *gin.Context) {
+	subjectId, err := strconv.Atoi(c.Param("subject_id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	subjectObjectId, err := strconv.Atoi(c.Param("subject_object_id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	// The download result, including a failure, is stored and shown in the list.
+	_, err = h.useCase.RefreshSubjectObjectContent(c.Request.Context(), subjectId, subjectObjectId)
+	if err != nil && !errors.Is(err, educational.ErrSubjectObjectNotDocument) {
+		if errors.Is(err, educational.ErrSubjectObjectNotFound) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/admin/subject/"+strconv.Itoa(subjectId))
 }
 
 func (h *Handler) CreateSubjectObject(c *gin.Context) {

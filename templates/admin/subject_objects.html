@@ -18,8 +18,32 @@
     <div class="media text-muted pt-3">
       <div class="media-body pb-3 mb-0 small lh-125 border-bottom border-gray">
         <div class="d-flex justify-content-between align-items-center w-100">
-          <strong class="text-gray-dark">{{ .Name }}</strong>
+          <div>
+            <strong class="text-gray-dark">{{ .Name }}</strong>
+            {{ if .IsDocument }}
+            <div>
+              {{ if .ContentError }}
+              <span class="text-danger">Ошибка загрузки: {{ .ContentError }}</span><br>
+              {{ end }}
+              {{ if .ContentFetchedAt }}
+              <span class="{{ if .ContentError }}text-muted{{ else }}text-success{{ end }}">
+                Загружено {{ .ContentFetchedAt.UTC.Format "02.01.2006 15:04" }} UTC{{ if .ContentError }}, студенты видят эту версию{{ end }}
+              </span>
+              {{ else if not .ContentError }}
+              <span class="text-muted">Ещё не загружалось</span>
+              {{ end }}
+            </div>
+            {{ else if .ContentUnsupported }}
+            <div class="text-muted">Не markdown-файл, открывается в OneDrive</div>
+            {{ end }}
+          </div>
           <div class="btn-group" role="group" aria-label="Basic example">
+            <a href="/tasks/{{ .ID }}" target="_blank"><button type="button" class="btn btn-outline-secondary btn-sm mx-1">Открыть</button></a>
+            {{ if or .IsDocument .ContentUnsupported }}
+            <form method="post" action="/admin/subject/{{ .SubjectId }}/subject_object/{{ .ID }}/refresh">
+              <button type="submit" class="btn btn-secondary btn-sm mx-1">Обновить</button>
+            </form>
+            {{ end }}
             <a href="/admin/subject/{{ .SubjectId }}/subject_object/{{ .ID }}/edit"><button type="button" class="btn btn-primary btn-sm mx-1">Редактировать</button></a>
             <button type="button" class="btn btn-danger btn-sm mx-1" onclick="sendDelete(event, '/admin/subject/{{ .SubjectId }}/subject_object/{{ .ID }}')">Удалить</button>
           </div>

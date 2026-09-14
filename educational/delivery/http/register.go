@@ -16,6 +16,7 @@ func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCa
 	router.GET("/subjects/:subject_id", h.ListSubjectObject)
 
 	router.GET("/", h.IndexPage)
+	router.GET("/tasks/:subject_object_id", h.TaskPage)
 
 	adminEndpoints := router.Group("/admin")
 	adminEndpoints.Use(http.NewAuthMiddleware())
@@ -41,6 +42,7 @@ func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCa
 		adminEndpoints.POST("/subject/:subject_id/subject_object/create", h.CreateSubjectObject)
 		adminEndpoints.GET("/subject/:subject_id/subject_object/:subject_object_id/edit", h.EditSubjectObjectForm)
 		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/edit", h.UpdateSubjectObject)
+		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/refresh", h.RefreshSubjectObjectContent)
 		adminEndpoints.DELETE("/subject/:subject_id/subject_object/:subject_object_id", h.DeleteSubjectObject)
 	}
 }
