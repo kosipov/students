@@ -9,6 +9,8 @@ type SubjectObject struct {
 	Href      string
 	SubjectId int
 	Subject   Subject
+	// Hidden subject objects are shown only in the admin panel.
+	Hidden bool `gorm:"not null;default:false"`
 
 	// Stored copy of the markdown document Href points to (e.g. a file shared from OneDrive).
 	// It is shown to students even when the source becomes unavailable.

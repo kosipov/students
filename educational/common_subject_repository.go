@@ -15,6 +15,7 @@ type CommonSubjectRepository interface {
 	GetSubjectObject(ctx context.Context, subjectObjectId int) (*models.SubjectObject, error)
 	UpdateSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error
 	UpdateSubjectObjectContent(ctx context.Context, subjectObject *models.SubjectObject) error
+	UpdateSubjectObjectHidden(ctx context.Context, subjectObject *models.SubjectObject) error
 	DeleteSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error
 	GetGroup(ctx context.Context, groupId int) (*models.Group, error)
 }

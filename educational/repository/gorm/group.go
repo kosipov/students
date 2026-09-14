@@ -16,12 +16,14 @@ func NewGroupRepository(db *gorm.DB) *GroupRepository {
 
 func (g *GroupRepository) GetGroups(ctx context.Context) (*[]models.Group, error) {
 	var groups []models.Group
-	// Stored documents are not needed for lists, so they are not loaded.
-	result := g.db.
-		Preload("Subjects").
-		Preload("Subjects.SubjectObjects", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id, name, comment, href, subject_id")
-		}).
+	result := preloadSubjectObjects(g.db, false).Find(&groups)
+	return &groups, result.Error
+}
+
+func (g *GroupRepository) GetVisibleGroups(ctx context.Context) (*[]models.Group, error) {
+	var groups []models.Group
+	result := preloadSubjectObjects(g.db, true).
+		Where("hidden = ?", false).
 		Find(&groups)
 	return &groups, result.Error
 }
@@ -35,4 +37,22 @@ func (g *GroupRepository) GetGroupById(ctx context.Context, id int) (*models.Gro
 func (g *GroupRepository) CreateGroup(ctx context.Context, group *models.Group) error {
 	newGroup := g.db.Create(group)
 	return newGroup.Error
+}
+
+func (g *GroupRepository) UpdateGroupHidden(ctx context.Context, group *models.Group) error {
+	return g.db.Model(group).Update("hidden", group.Hidden).Error
+}
+
+// preloadSubjectObjects loads subjects with their subject objects for lists.
+// Stored documents are not needed for lists, so they are not loaded.
+func preloadSubjectObjects(db *gorm.DB, onlyVisible bool) *gorm.DB {
+	return db.
+		Preload("Subjects").
+		Preload("Subjects.SubjectObjects", func(db *gorm.DB) *gorm.DB {
+			db = db.Select("id, name, comment, href, subject_id, hidden")
+			if onlyVisible {
+				db = db.Where("hidden = ?", false)
+			}
+			return db
+		})
 }

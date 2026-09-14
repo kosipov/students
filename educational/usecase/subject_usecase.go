@@ -44,12 +44,49 @@ func (subjectUseCase *SubjectUseCase) GetSubjectsByGroup(ctx context.Context, gr
 	return subjectUseCase.subjectRepo.GetSubjectsByGroup(ctx, group)
 }
 
+func (subjectUseCase *SubjectUseCase) GetVisibleSubjectsByGroup(ctx context.Context, groupId int) (*[]models.Subject, error) {
+	group, err := subjectUseCase.subjectRepo.GetGroup(ctx, groupId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, educational.ErrGroupNotFound
+		}
+		return nil, err
+	}
+	if group.Hidden {
+		return nil, educational.ErrGroupNotFound
+	}
+	return subjectUseCase.subjectRepo.GetSubjectsByGroup(ctx, group)
+}
+
 func (subjectUseCase *SubjectUseCase) SubjectObjectListFromSubject(ctx context.Context, subjectId int) (*[]models.SubjectObject, error) {
 	subject, err := subjectUseCase.GetSubjectById(ctx, subjectId)
 	if err != nil {
 		return nil, err
 	}
 	return subjectUseCase.subjectRepo.GetSubjectObjectsBySubject(ctx, subject)
+}
+
+func (subjectUseCase *SubjectUseCase) VisibleSubjectObjectListFromSubject(ctx context.Context, subjectId int) (*[]models.SubjectObject, error) {
+	visible, err := subjectUseCase.isSubjectVisible(ctx, subjectId)
+	if err != nil {
+		return nil, err
+	}
+	if !visible {
+		return nil, educational.ErrSubjectNotFound
+	}
+
+	subjectObjects, err := subjectUseCase.SubjectObjectListFromSubject(ctx, subjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	visibleSubjectObjects := make([]models.SubjectObject, 0, len(*subjectObjects))
+	for _, subjectObject := range *subjectObjects {
+		if !subjectObject.Hidden {
+			visibleSubjectObjects = append(visibleSubjectObjects, subjectObject)
+		}
+	}
+	return &visibleSubjectObjects, nil
 }
 
 func (subjectUseCase *SubjectUseCase) GetSubjectById(ctx context.Context, id int) (*models.Subject, error) {
@@ -125,6 +162,16 @@ func (subjectUseCase *SubjectUseCase) UpdateSubjectObject(ctx context.Context, s
 	return subjectObject, nil
 }
 
+func (subjectUseCase *SubjectUseCase) SetSubjectObjectHidden(ctx context.Context, subjectId int, subjectObjectId int, hidden bool) error {
+	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
+	if err != nil {
+		return err
+	}
+
+	subjectObject.Hidden = hidden
+	return subjectUseCase.subjectRepo.UpdateSubjectObjectHidden(ctx, subjectObject)
+}
+
 func (subjectUseCase *SubjectUseCase) GetTask(ctx context.Context, subjectObjectId int) (*models.SubjectObject, error) {
 	subjectObject, err := subjectUseCase.subjectRepo.GetSubjectObject(ctx, subjectObjectId)
 	if err != nil {
@@ -134,6 +181,52 @@ func (subjectUseCase *SubjectUseCase) GetTask(ctx context.Context, subjectObject
 		return nil, err
 	}
 
+	if subjectObject.Hidden {
+		return nil, educational.ErrSubjectObjectNotFound
+	}
+	visible, err := subjectUseCase.isSubjectVisible(ctx, subjectObject.SubjectId)
+	if err != nil {
+		return nil, err
+	}
+	if !visible {
+		return nil, educational.ErrSubjectObjectNotFound
+	}
+
+	return subjectUseCase.loadTask(subjectObject)
+}
+
+func (subjectUseCase *SubjectUseCase) PreviewTask(ctx context.Context, subjectId int, subjectObjectId int) (*models.SubjectObject, error) {
+	subjectObject, err := subjectUseCase.GetSubjectObject(ctx, subjectId, subjectObjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	return subjectUseCase.loadTask(subjectObject)
+}
+
+// isSubjectVisible reports whether students can see the subject, i.e. its group is not hidden.
+func (subjectUseCase *SubjectUseCase) isSubjectVisible(ctx context.Context, subjectId int) (bool, error) {
+	subject, err := subjectUseCase.subjectRepo.GetSubject(ctx, subjectId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	group, err := subjectUseCase.subjectRepo.GetGroup(ctx, subject.GroupId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return !group.Hidden, nil
+}
+
+// loadTask returns the subject object with its stored document, refreshing it when it is outdated.
+func (subjectUseCase *SubjectUseCase) loadTask(subjectObject *models.SubjectObject) (*models.SubjectObject, error) {
 	if !subjectUseCase.IsDocument(subjectObject) {
 		return subjectObject, educational.ErrSubjectObjectNotDocument
 	}

@@ -62,6 +62,10 @@ func (subjectRepo *SubjectRepository) UpdateSubjectObject(ctx context.Context, s
 	}).Error
 }
 
+func (subjectRepo *SubjectRepository) UpdateSubjectObjectHidden(ctx context.Context, subjectObject *models.SubjectObject) error {
+	return subjectRepo.db.Model(subjectObject).Update("hidden", subjectObject.Hidden).Error
+}
+
 func (subjectRepo *SubjectRepository) UpdateSubjectObjectContent(ctx context.Context, subjectObject *models.SubjectObject) error {
 	return subjectRepo.db.Model(subjectObject).Updates(map[string]interface{}{
 		"content":             subjectObject.Content,

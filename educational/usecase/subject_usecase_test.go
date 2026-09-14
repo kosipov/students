@@ -18,7 +18,70 @@ type fakeSubjectRepo struct {
 	educational.CommonSubjectRepository
 
 	mu             sync.Mutex
+	groups         map[int]models.Group
+	subjects       map[int]models.Subject
 	subjectObjects map[int]models.SubjectObject
+}
+
+func (r *fakeSubjectRepo) GetGroup(ctx context.Context, id int) (*models.Group, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	group, ok := r.groups[id]
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &group, nil
+}
+
+func (r *fakeSubjectRepo) GetSubject(ctx context.Context, id int) (*models.Subject, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	subject, ok := r.subjects[id]
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &subject, nil
+}
+
+func (r *fakeSubjectRepo) GetSubjectsByGroup(ctx context.Context, group *models.Group) (*[]models.Subject, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var subjects []models.Subject
+	for _, subject := range r.subjects {
+		if subject.GroupId == int(group.ID) {
+			subjects = append(subjects, subject)
+		}
+	}
+	return &subjects, nil
+}
+
+func (r *fakeSubjectRepo) GetSubjectObjectsBySubject(ctx context.Context, subject *models.Subject) (*[]models.SubjectObject, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var subjectObjects []models.SubjectObject
+	for id := 1; id <= len(r.subjectObjects); id++ {
+		if subjectObject, ok := r.subjectObjects[id]; ok && subjectObject.SubjectId == subject.ID {
+			subjectObjects = append(subjectObjects, subjectObject)
+		}
+	}
+	return &subjectObjects, nil
+}
+
+func (r *fakeSubjectRepo) UpdateSubjectObjectHidden(ctx context.Context, subjectObject *models.SubjectObject) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	stored := r.subjectObjects[subjectObject.ID]
+	stored.Hidden = subjectObject.Hidden
+	r.subjectObjects[subjectObject.ID] = stored
+	return nil
+}
+
+func (r *fakeSubjectRepo) setGroupHidden(id int, hidden bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	group := r.groups[id]
+	group.Hidden = hidden
+	r.groups[id] = group
 }
 
 func (r *fakeSubjectRepo) GetSubjectObject(ctx context.Context, id int) (*models.SubjectObject, error) {
@@ -105,8 +168,15 @@ func (f *fakeFetcher) callCount() int {
 
 var testNow = time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 
+const testGroupId = 1
+
+// newTestUseCase stores the subject object with a visible subject and group.
 func newTestUseCase(subjectObject models.SubjectObject, fetcher *fakeFetcher) (*SubjectUseCase, *fakeSubjectRepo) {
-	repo := &fakeSubjectRepo{subjectObjects: map[int]models.SubjectObject{subjectObject.ID: subjectObject}}
+	repo := &fakeSubjectRepo{
+		groups:         map[int]models.Group{testGroupId: {ID: testGroupId}},
+		subjects:       map[int]models.Subject{subjectObject.SubjectId: {ID: subjectObject.SubjectId, GroupId: testGroupId}},
+		subjectObjects: map[int]models.SubjectObject{subjectObject.ID: subjectObject},
+	}
 	uc := NewSubjectUseCase(repo, fetcher)
 	uc.now = func() time.Time { return testNow }
 	return uc, repo
@@ -344,5 +414,111 @@ func waitFor(t *testing.T, condition func() bool) {
 			t.Fatal("condition was not met in time")
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestGetTaskHidden(t *testing.T) {
+	fetcher := &fakeFetcher{content: &educational.Content{Body: []byte("# Задание"), ETag: "v1"}}
+
+	t.Run("hidden subject object", func(t *testing.T) {
+		uc, _ := newTestUseCase(models.SubjectObject{ID: 1, SubjectId: 7, Href: oneDriveHref, Hidden: true}, fetcher)
+		if _, err := uc.GetTask(context.Background(), 1); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
+			t.Fatalf("GetTask() error = %v, want ErrSubjectObjectNotFound", err)
+		}
+	})
+
+	t.Run("hidden group", func(t *testing.T) {
+		uc, repo := newTestUseCase(models.SubjectObject{ID: 1, SubjectId: 7, Href: "https://example.com/task"}, fetcher)
+		repo.setGroupHidden(testGroupId, true)
+		// Even external links must not be revealed through the redirect.
+		if subjectObject, err := uc.GetTask(context.Background(), 1); !errors.Is(err, educational.ErrSubjectObjectNotFound) || subjectObject != nil {
+			t.Fatalf("GetTask() = %+v, %v; want ErrSubjectObjectNotFound without subject object", subjectObject, err)
+		}
+	})
+
+	if fetcher.callCount() != 0 {
+		t.Errorf("fetch calls = %d, hidden documents must not be downloaded for students", fetcher.callCount())
+	}
+}
+
+func TestPreviewTaskShowsHidden(t *testing.T) {
+	fetcher := &fakeFetcher{content: &educational.Content{Body: []byte("# Задание"), ETag: "v1"}}
+	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, SubjectId: 7, Href: oneDriveHref, Hidden: true}, fetcher)
+	repo.setGroupHidden(testGroupId, true)
+
+	subjectObject, err := uc.PreviewTask(context.Background(), 7, 1)
+	if err != nil {
+		t.Fatalf("PreviewTask() error = %v", err)
+	}
+	if subjectObject.Content != "# Задание" {
+		t.Errorf("Content = %q, want downloaded document", subjectObject.Content)
+	}
+
+	if _, err := uc.PreviewTask(context.Background(), 8, 1); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
+		t.Errorf("PreviewTask() with another subject error = %v, want ErrSubjectObjectNotFound", err)
+	}
+}
+
+func TestSetSubjectObjectHidden(t *testing.T) {
+	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, SubjectId: 7, Href: oneDriveHref}, &fakeFetcher{})
+
+	if err := uc.SetSubjectObjectHidden(context.Background(), 7, 1, true); err != nil {
+		t.Fatalf("SetSubjectObjectHidden() error = %v", err)
+	}
+	if !repo.stored(1).Hidden {
+		t.Error("subject object is not hidden")
+	}
+
+	// Setting the same state again keeps it, so a double submit doesn't toggle it back.
+	if err := uc.SetSubjectObjectHidden(context.Background(), 7, 1, true); err != nil || !repo.stored(1).Hidden {
+		t.Errorf("repeated SetSubjectObjectHidden() error = %v, hidden = %v", err, repo.stored(1).Hidden)
+	}
+
+	if err := uc.SetSubjectObjectHidden(context.Background(), 7, 1, false); err != nil || repo.stored(1).Hidden {
+		t.Errorf("SetSubjectObjectHidden(false) error = %v, hidden = %v", err, repo.stored(1).Hidden)
+	}
+
+	if err := uc.SetSubjectObjectHidden(context.Background(), 8, 1, true); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
+		t.Errorf("SetSubjectObjectHidden() with another subject error = %v, want ErrSubjectObjectNotFound", err)
+	}
+}
+
+func TestVisibleSubjectObjectListFromSubject(t *testing.T) {
+	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, SubjectId: 7, Name: "Видимое"}, &fakeFetcher{})
+	repo.subjectObjects[2] = models.SubjectObject{ID: 2, SubjectId: 7, Name: "Скрытое", Hidden: true}
+
+	subjectObjects, err := uc.VisibleSubjectObjectListFromSubject(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("VisibleSubjectObjectListFromSubject() error = %v", err)
+	}
+	if len(*subjectObjects) != 1 || (*subjectObjects)[0].Name != "Видимое" {
+		t.Errorf("subject objects = %+v, want only visible ones", *subjectObjects)
+	}
+
+	all, err := uc.SubjectObjectListFromSubject(context.Background(), 7)
+	if err != nil || len(*all) != 2 {
+		t.Errorf("SubjectObjectListFromSubject() = %v, %v; admin list must include hidden", all, err)
+	}
+
+	repo.setGroupHidden(testGroupId, true)
+	if _, err := uc.VisibleSubjectObjectListFromSubject(context.Background(), 7); !errors.Is(err, educational.ErrSubjectNotFound) {
+		t.Errorf("VisibleSubjectObjectListFromSubject() for hidden group error = %v, want ErrSubjectNotFound", err)
+	}
+}
+
+func TestGetVisibleSubjectsByGroup(t *testing.T) {
+	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, SubjectId: 7}, &fakeFetcher{})
+
+	subjects, err := uc.GetVisibleSubjectsByGroup(context.Background(), testGroupId)
+	if err != nil || len(*subjects) != 1 {
+		t.Fatalf("GetVisibleSubjectsByGroup() = %v, %v; want the subject of the visible group", subjects, err)
+	}
+
+	repo.setGroupHidden(testGroupId, true)
+	if _, err := uc.GetVisibleSubjectsByGroup(context.Background(), testGroupId); !errors.Is(err, educational.ErrGroupNotFound) {
+		t.Errorf("GetVisibleSubjectsByGroup() for hidden group error = %v, want ErrGroupNotFound", err)
+	}
+	if _, err := uc.GetVisibleSubjectsByGroup(context.Background(), 404); !errors.Is(err, educational.ErrGroupNotFound) {
+		t.Errorf("GetVisibleSubjectsByGroup() for missing group error = %v, want ErrGroupNotFound", err)
 	}
 }

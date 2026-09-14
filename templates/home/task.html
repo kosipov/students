@@ -37,7 +37,13 @@
 </head>
 <body class="bg-light">
 <main role="main" class="container py-4">
-    <a href="/">&larr; Все задания</a>
+    <a href="{{ .backURL }}">&larr; {{ if .preview }}К списку заданий{{ else }}Все задания{{ end }}</a>
+
+    {{ if .preview }}
+    <div class="alert alert-info mt-3" role="alert">
+        Предпросмотр для администратора.{{ if .subjectObject.Hidden }} Задание скрыто, студенты его не видят.{{ end }}
+    </div>
+    {{ end }}
 
     <div class="d-flex flex-wrap justify-content-between align-items-center mt-3">
         <h1 class="h3 mb-2 mr-3">{{ .subjectObject.Name }}</h1>

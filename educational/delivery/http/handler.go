@@ -41,8 +41,12 @@ func (h *Handler) ListSubject(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	subjectList, err := h.useCase.GetSubjectsByGroup(c.Request.Context(), groupId)
+	subjectList, err := h.useCase.GetVisibleSubjectsByGroup(c.Request.Context(), groupId)
 	if err != nil {
+		if errors.Is(err, educational.ErrGroupNotFound) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -53,7 +57,7 @@ func (h *Handler) ListSubject(c *gin.Context) {
 }
 
 func (h *Handler) ListGroups(c *gin.Context) {
-	listGroups, err := h.groupUseCase.GetAllGroups(c.Request.Context())
+	listGroups, err := h.groupUseCase.GetVisibleGroups(c.Request.Context())
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -71,8 +75,12 @@ func (h *Handler) ListSubjectObject(c *gin.Context) {
 		return
 	}
 
-	subjectObjectList, err := h.useCase.SubjectObjectListFromSubject(c.Request.Context(), subjectId)
+	subjectObjectList, err := h.useCase.VisibleSubjectObjectListFromSubject(c.Request.Context(), subjectId)
 	if err != nil {
+		if errors.Is(err, educational.ErrSubjectNotFound) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -83,22 +91,15 @@ func (h *Handler) ListSubjectObject(c *gin.Context) {
 }
 
 func (h *Handler) IndexPage(c *gin.Context) {
-	groups, err := h.groupUseCase.GetAllGroups(c.Request.Context())
-	if err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	subjects, err := h.useCase.GetAllSubject(c.Request.Context())
+	groups, err := h.groupUseCase.GetVisibleGroups(c.Request.Context())
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
 	c.HTML(http.StatusOK, "home/index.html", gin.H{
-		"index":    "Главная",
-		"groups":   groups,
-		"subjects": subjects,
+		"index":  "Главная",
+		"groups": groups,
 	})
 }
 
@@ -234,6 +235,33 @@ func (h *Handler) TaskPage(c *gin.Context) {
 	}
 
 	subjectObject, err := h.useCase.GetTask(c.Request.Context(), subjectObjectId)
+	h.renderTask(c, subjectObject, err, gin.H{
+		"backURL": "/",
+	})
+}
+
+// PreviewTask shows a task page to the admin, including hidden subject objects.
+func (h *Handler) PreviewTask(c *gin.Context) {
+	subjectId, err := strconv.Atoi(c.Param("subject_id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	subjectObjectId, err := strconv.Atoi(c.Param("subject_object_id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	subjectObject, err := h.useCase.PreviewTask(c.Request.Context(), subjectId, subjectObjectId)
+	h.renderTask(c, subjectObject, err, gin.H{
+		"backURL": "/admin/subject/" + strconv.Itoa(subjectId),
+		"preview": true,
+	})
+}
+
+// renderTask renders the result of GetTask or PreviewTask. data is added to the template data.
+func (h *Handler) renderTask(c *gin.Context, subjectObject *models.SubjectObject, err error, data gin.H) {
 	switch {
 	case errors.Is(err, educational.ErrSubjectObjectNotDocument):
 		if subjectObject.Href == "" {
@@ -250,11 +278,11 @@ func (h *Handler) TaskPage(c *gin.Context) {
 		return
 	}
 
+	data["subjectObject"] = subjectObject
+
 	if subjectObject.Content == "" {
 		// The document has never been downloaded successfully.
-		c.HTML(http.StatusBadGateway, "home/task.html", gin.H{
-			"subjectObject": subjectObject,
-		})
+		c.HTML(http.StatusBadGateway, "home/task.html", data)
 		return
 	}
 
@@ -264,10 +292,63 @@ func (h *Handler) TaskPage(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusOK, "home/task.html", gin.H{
-		"subjectObject": subjectObject,
-		"content":       content,
-	})
+	data["content"] = content
+	c.HTML(http.StatusOK, "home/task.html", data)
+}
+
+func (h *Handler) SetGroupVisibility(c *gin.Context) {
+	groupId, err := strconv.Atoi(c.Param("group_id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	hidden, err := strconv.ParseBool(c.PostForm("hidden"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	err = h.groupUseCase.SetGroupHidden(c.Request.Context(), groupId, hidden)
+	if err != nil {
+		if errors.Is(err, educational.ErrGroupNotFound) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/admin/groups")
+}
+
+func (h *Handler) SetSubjectObjectVisibility(c *gin.Context) {
+	subjectId, err := strconv.Atoi(c.Param("subject_id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	subjectObjectId, err := strconv.Atoi(c.Param("subject_object_id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	hidden, err := strconv.ParseBool(c.PostForm("hidden"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	err = h.useCase.SetSubjectObjectHidden(c.Request.Context(), subjectId, subjectObjectId, hidden)
+	if err != nil {
+		if errors.Is(err, educational.ErrSubjectObjectNotFound) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/admin/subject/"+strconv.Itoa(subjectId))
 }
 
 func (h *Handler) RefreshSubjectObjectContent(c *gin.Context) {

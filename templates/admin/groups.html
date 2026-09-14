@@ -17,8 +17,22 @@
       <div class="media text-muted pt-3">
         <div class="media-body pb-3 mb-0 small lh-125 border-bottom border-gray">
           <div class="d-flex justify-content-between align-items-center w-100">
-            <strong class="text-gray-dark">{{ .GroupName }}</strong>
-            <a href="/admin/groups/{{ .ID }}/subjects"><button type="button" class="btn btn-primary">Предметы</button></a>
+            <div>
+              <strong class="text-gray-dark">{{ .GroupName }}</strong>
+              {{ if .Hidden }}<span class="badge badge-secondary ml-1">Скрыта</span>{{ end }}
+            </div>
+            <div class="d-flex">
+              <form method="post" action="/admin/groups/{{ .ID }}/visibility">
+                {{ if .Hidden }}
+                <input type="hidden" name="hidden" value="false">
+                <button type="submit" class="btn btn-outline-success mx-1">Показать</button>
+                {{ else }}
+                <input type="hidden" name="hidden" value="true">
+                <button type="submit" class="btn btn-outline-warning mx-1">Скрыть</button>
+                {{ end }}
+              </form>
+              <a href="/admin/groups/{{ .ID }}/subjects"><button type="button" class="btn btn-primary mx-1">Предметы</button></a>
+            </div>
           </div>
         </div>
       </div>

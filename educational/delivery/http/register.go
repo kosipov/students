@@ -32,6 +32,7 @@ func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCa
 			c.HTML(http2.StatusOK, "admin/form_group.html", gin.H{})
 		})
 		adminEndpoints.POST("/groups", h.CreateGroup)
+		adminEndpoints.POST("/groups/:group_id/visibility", h.SetGroupVisibility)
 		adminEndpoints.POST("/groups/:group_id/subject/create", h.CreateSubject)
 		adminEndpoints.GET("/subject/:subject_id", h.ListHtmlSubjectObject)
 		adminEndpoints.GET("/subject/:subject_id/subject_object/create", func(c *gin.Context) {
@@ -43,6 +44,8 @@ func RegisterHTTPEndpoints(router *gin.Engine, uc educational.CommonSubjectUseCa
 		adminEndpoints.GET("/subject/:subject_id/subject_object/:subject_object_id/edit", h.EditSubjectObjectForm)
 		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/edit", h.UpdateSubjectObject)
 		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/refresh", h.RefreshSubjectObjectContent)
+		adminEndpoints.POST("/subject/:subject_id/subject_object/:subject_object_id/visibility", h.SetSubjectObjectVisibility)
+		adminEndpoints.GET("/subject/:subject_id/subject_object/:subject_object_id/preview", h.PreviewTask)
 		adminEndpoints.DELETE("/subject/:subject_id/subject_object/:subject_object_id", h.DeleteSubjectObject)
 	}
 }
