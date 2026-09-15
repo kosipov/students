@@ -94,6 +94,13 @@
 .navitem-sub { padding: var(--space-2) var(--space-6); font-size: 14px; justify-content: flex-start; }
 .navitem-sub.is-active { background: transparent; }
 
+.lesson-now-dot {
+  display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%;
+  background: var(--color-accent); vertical-align: middle;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
 .main { padding: var(--space-8); min-width: 0; }
 
 .footer {

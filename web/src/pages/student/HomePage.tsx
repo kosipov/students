@@ -1,17 +1,22 @@
 import { Link, useParams } from 'react-router'
+import { usePresence } from '../../api/queries'
 import { Corners } from '../../components/Corners'
 import { NotFound } from '../../components/PageState'
 import { PresenceCard } from '../../components/PresenceCard'
 import { useSelection, useStudentShell } from '../../layouts/StudentLayout'
 import { findGroup } from '../../lib/catalog'
+import { groupsWithLessonFirst, matchLesson } from '../../lib/currentLesson'
 import { useDocumentTitle } from '../../lib/hooks'
 import { countLabel, ordinal, SUBJECT_FORMS, TASK_FORMS } from '../../lib/text'
 
 export function HomePage() {
   const { catalog } = useStudentShell()
   const params = useParams()
+  const presence = usePresence()
   const groupId = params.groupId === undefined ? undefined : Number(params.groupId)
-  const group = groupId === undefined ? catalog.groups[0] : findGroup(catalog, groupId)
+  // Without a chosen group the page shows the first one in the sidebar, which during a lesson is the group having it.
+  const lessonNow = presence.data?.status === 'in_class' ? matchLesson(catalog, presence.data.current) : null
+  const group = groupId === undefined ? groupsWithLessonFirst(catalog.groups, lessonNow)[0] : findGroup(catalog, groupId)
 
   useSelection(group?.id, undefined)
   useDocumentTitle(group?.name)

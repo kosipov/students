@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
-import { useCatalog } from '../api/queries'
+import { useCatalog, usePresence } from '../api/queries'
 import type { Catalog } from '../api/types'
 import { Footer, Header } from '../components/Header'
 import { Loading, QueryError } from '../components/PageState'
 import { countTasks, findGroup } from '../lib/catalog'
+import { groupsWithLessonFirst, matchLesson } from '../lib/currentLesson'
 import { SearchResults } from '../pages/student/SearchResults'
 
 interface Selection {
@@ -38,6 +39,7 @@ export function useSelection(groupId: number | undefined, subjectId: number | un
 
 export function StudentLayout() {
   const catalog = useCatalog()
+  const presence = usePresence()
   const location = useLocation()
   const [query, setQuery] = useState('')
   const [selection, setSelection] = useState<Selection>({})
@@ -50,7 +52,10 @@ export function StudentLayout() {
     [catalog.data],
   )
 
-  const groups = catalog.data?.groups ?? []
+  // The group that has a lesson right now goes first: in a computer class it is the one students need.
+  const lessonNow =
+    catalog.data && presence.data?.status === 'in_class' ? matchLesson(catalog.data, presence.data.current) : null
+  const groups = groupsWithLessonFirst(catalog.data?.groups ?? [], lessonNow)
   const activeGroup = catalog.data && selection.groupId !== undefined ? findGroup(catalog.data, selection.groupId) : undefined
 
   return (
@@ -66,6 +71,7 @@ export function StudentLayout() {
             aria-current={group.id === activeGroup?.id ? 'true' : undefined}
           >
             {group.name}
+            {group.id === lessonNow?.group.id && <span className="lesson-now-dot" title="Сейчас идёт пара" />}
           </Link>
         ))}
       </nav>
@@ -81,8 +87,19 @@ export function StudentLayout() {
                 className={`navitem si ${group.id === activeGroup?.id ? 'is-active' : ''}`}
                 aria-current={group.id === activeGroup?.id ? 'true' : undefined}
               >
-                <span className="navitem-title">{group.name}</span>
-                <span className="tag tag-neutral" title="Заданий">
+                <span className="navitem-title">
+                  {group.name}
+                  {group.id === lessonNow?.group.id && (
+                    <>
+                      <span className="lesson-now-dot" aria-hidden="true" />
+                      <span className="visually-hidden"> — сейчас идёт пара</span>
+                    </>
+                  )}
+                </span>
+                <span
+                  className={`tag ${group.id === lessonNow?.group.id ? 'tag-accent' : 'tag-neutral'}`}
+                  title={group.id === lessonNow?.group.id ? 'Сейчас идёт пара' : 'Заданий'}
+                >
                   {countTasks(group)}
                 </span>
               </Link>
