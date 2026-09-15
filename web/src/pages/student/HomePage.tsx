@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router'
 import { Corners } from '../../components/Corners'
 import { NotFound } from '../../components/PageState'
+import { PresenceCard } from '../../components/PresenceCard'
 import { useSelection, useStudentShell } from '../../layouts/StudentLayout'
 import { findGroup } from '../../lib/catalog'
 import { useDocumentTitle } from '../../lib/hooks'
@@ -24,6 +25,8 @@ export function HomePage() {
       <div className="kicker ri">Учебные материалы</div>
       <h1 className="page-title page-title--hero ri delay-1">Задания и материалы для студентов</h1>
       <p className="lead ri delay-2">Выберите свою группу, а затем предмет. Внутри — задания и всё, что к ним нужно.</p>
+
+      <PresenceCard />
 
       {!group ? (
         <div className="blueprint empty">

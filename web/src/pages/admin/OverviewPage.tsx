@@ -1,10 +1,11 @@
 import { Link } from 'react-router'
 import { ApiError } from '../../api/client'
-import { useOverview, useRefreshTask } from '../../api/queries'
+import { useOverview, useRefreshTask, useScheduleSync, useSyncScheduleNow } from '../../api/queries'
 import { Corners } from '../../components/Corners'
 import { Loading, QueryError } from '../../components/PageState'
 import { useToast } from '../../components/Toast'
 import { useCountUp, useDocumentTitle } from '../../lib/hooks'
+import { formatSyncTime } from '../../lib/presence'
 import { formatDate } from '../../lib/text'
 
 function Stat({ value, label, index }: { value: number; label: string; index: number }) {
@@ -20,6 +21,48 @@ function Stat({ value, label, index }: { value: number; label: string; index: nu
         {label}
       </div>
     </div>
+  )
+}
+
+function ScheduleSyncPanel() {
+  const state = useScheduleSync()
+  const syncNow = useSyncScheduleNow()
+  const toast = useToast()
+
+  const refresh = () =>
+    syncNow.mutate(undefined, {
+      onSuccess: (result) => toast(result.error ? 'Не удалось обновить расписание' : 'Расписание обновлено'),
+      onError: (error) => toast(error instanceof ApiError ? error.message : 'Не удалось обновить расписание'),
+    })
+
+  const data = state.data
+  return (
+    <section className="blueprint panel ri delay-2 schedule-panel" aria-labelledby="schedule-title">
+      <Corners />
+      <h3 id="schedule-title">Расписание университета</h3>
+      {state.isPending && <p className="muted">Загружаем…</p>}
+      {data && (
+        <div className="panel-row">
+          <span>
+            <span className="panel-row-title">
+              {data.succeededAt ? `Обновлено ${formatSyncTime(data.succeededAt)}` : 'Ещё не загружалось'}
+              {data.campusUpdatedAt && <span className="muted"> · на кампусе изменено {formatSyncTime(data.campusUpdatedAt)}</span>}
+            </span>
+            {data.error ? (
+              <span className="panel-row-problem">
+                Последняя попытка {data.checkedAt ? formatSyncTime(data.checkedAt) : ''} не удалась: {data.error}
+              </span>
+            ) : (
+              <span className="panel-row-sub">Копируется с campus.syktsu.ru каждые 30 минут</span>
+            )}
+            {data.stale && data.succeededAt && <span className="panel-row-problem">Давно не обновлялось — статус на сайте может быть неточным</span>}
+          </span>
+          <button type="button" className="btn btn-secondary" onClick={refresh} disabled={syncNow.isPending}>
+            {syncNow.isPending ? 'Обновляем…' : 'Обновить сейчас'}
+          </button>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -108,6 +151,8 @@ export function OverviewPage() {
           )}
         </section>
       </div>
+
+      <ScheduleSyncPanel />
     </div>
   )
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/kosipov/students/auth"
+	"github.com/kosipov/students/campus"
 	"github.com/kosipov/students/educational"
 	"github.com/kosipov/students/models"
 	"github.com/kosipov/students/onedrive"
@@ -26,6 +27,9 @@ import (
 	educationalhttp "github.com/kosipov/students/educational/delivery/http"
 	educationalgorm "github.com/kosipov/students/educational/repository/gorm"
 	educationalusecase "github.com/kosipov/students/educational/usecase"
+	schedulehttp "github.com/kosipov/students/schedule/delivery/http"
+	schedulegorm "github.com/kosipov/students/schedule/repository/gorm"
+	scheduleusecase "github.com/kosipov/students/schedule/usecase"
 )
 
 import _ "github.com/go-sql-driver/mysql"
@@ -33,9 +37,13 @@ import _ "github.com/go-sql-driver/mysql"
 type App struct {
 	httpServer *http.Server
 
-	authUC    auth.UseCase
-	groupUC   educational.CommonGroupUseCase
-	subjectUC educational.CommonSubjectUseCase
+	authUC     auth.UseCase
+	groupUC    educational.CommonGroupUseCase
+	subjectUC  educational.CommonSubjectUseCase
+	scheduleUC *scheduleusecase.UseCase
+	// syncSchedule is off when no teacher is configured.
+	syncSchedule         bool
+	scheduleSyncInterval time.Duration
 }
 
 func NewApp() *App {
@@ -45,7 +53,18 @@ func NewApp() *App {
 	groupRepo := educationalgorm.NewGroupRepository(db)
 	subjectRepo := educationalgorm.NewSubjectRepository(db)
 
+	teacher := viper.GetString("campus.teacher")
+	syncInterval := viper.GetDuration("campus.sync_interval")
+	if syncInterval < 5*time.Minute {
+		// Protects the university's site from a typo like "30s".
+		syncInterval = 30 * time.Minute
+	}
+	scheduleSource := campus.Source{Client: campus.NewClient(teacher)}
+
 	return &App{
+		scheduleUC:           scheduleusecase.NewUseCase(schedulegorm.NewRepository(db), scheduleSource),
+		syncSchedule:         teacher != "",
+		scheduleSyncInterval: syncInterval,
 		authUC: usecase.NewAuthUseCase(
 			userRepo,
 			viper.GetString("auth.hash_salt"),
@@ -80,6 +99,7 @@ func (a *App) Run(port string) error {
 	authhttp.RegisterHTTPEndpoints(api, a.authUC)
 	admin := api.Group("/admin", authhttp.NewAuthMiddleware())
 	educationalhttp.RegisterHTTPEndpoints(api, admin, a.subjectUC, a.groupUC)
+	schedulehttp.RegisterHTTPEndpoints(api, admin, a.scheduleUC)
 
 	registerSPA(router, "web/dist")
 
@@ -93,6 +113,12 @@ func (a *App) Run(port string) error {
 		MaxHeaderBytes: 1 << 20,
 	}
 
+	backgroundCtx, stopBackground := context.WithCancel(context.Background())
+	defer stopBackground()
+	if a.syncSchedule {
+		go a.scheduleUC.Run(backgroundCtx, a.scheduleSyncInterval)
+	}
+
 	go func() {
 		if err := a.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("Failed to listen and serve: %+v", err)
@@ -104,6 +130,7 @@ func (a *App) Run(port string) error {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	<-quit
+	stopBackground()
 
 	ctx, shutdown := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdown()
@@ -131,6 +158,8 @@ func InitDB() *gorm.DB {
 		&models.Subject{},
 		&models.SubjectObject{},
 		&models.SubjectObjectCategory{},
+		&models.ScheduleLesson{},
+		&models.ScheduleSync{},
 	)
 
 	return client

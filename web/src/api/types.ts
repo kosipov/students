@@ -136,3 +136,36 @@ export interface TaskInput {
   /** An empty password removes the protection. */
   password?: string
 }
+
+export interface ScheduleLesson {
+  number: number
+  title: string
+  /** As on the university's site: "л.", "пр.", "лаб.". */
+  kind: string
+  location: string
+  room: string
+  building: string
+  groups: string
+  startsAt: string
+  endsAt: string
+}
+
+export type PresenceStatus = 'in_class' | 'break' | 'away' | 'unknown'
+
+export interface Presence {
+  status: PresenceStatus
+  current: ScheduleLesson | null
+  /** The next lesson today. */
+  next: ScheduleLesson | null
+  syncedAt: string | null
+  /** The schedule hasn't been refreshed for a long time and may have changed. */
+  stale: boolean
+}
+
+export interface ScheduleSyncState {
+  checkedAt: string | null
+  succeededAt: string | null
+  campusUpdatedAt: string | null
+  error: string
+  stale: boolean
+}

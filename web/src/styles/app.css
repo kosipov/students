@@ -229,6 +229,8 @@ a.panel-row:hover { color: inherit; background: var(--color-accent-100); }
 .panel-row-sub { display: block; font-size: 12.5px; color: var(--text-muted); }
 .panel-row-problem { display: block; font-size: 12.5px; color: var(--color-accent-800); overflow-wrap: anywhere; }
 
+.schedule-panel { margin-top: var(--space-6); }
+
 .table-wrap { overflow-x: auto; }
 .table .cell-title { font-family: var(--font-heading); font-size: 18px; }
 .table .cell-title a { color: inherit; }
@@ -289,6 +291,20 @@ a.panel-row:hover { color: inherit; background: var(--color-accent-100); }
 .unlock-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
 .unlock-head .icn { width: 20px; height: 20px; color: var(--color-accent-700); }
 .unlock-head h2 { font-size: 24px; margin: 0; }
+
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent); } 70% { box-shadow: 0 0 0 10px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.presence {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-4); align-items: start;
+  padding: var(--space-6); margin-bottom: var(--space-8); max-width: 720px;
+}
+.presence--here { border-color: var(--color-accent-400); background: var(--color-accent-100); }
+.presence-dot { width: 12px; height: 12px; margin-top: 6px; border-radius: 50%; background: var(--color-neutral-400); }
+.presence--here .presence-dot { background: var(--color-accent); animation: pulse 2s infinite; }
+.presence--break .presence-dot { background: var(--color-accent-400); }
+.presence-kicker { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); margin-bottom: var(--space-1); }
+.presence-title { font-size: 24px; margin: 0 0 var(--space-1); }
+.presence-details { margin: 0; color: var(--text-soft); font-size: 14.5px; }
+.presence-stale { margin: var(--space-2) 0 0; font-size: 12.5px; color: var(--color-accent-800); }
 
 .filters { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-6); }
 

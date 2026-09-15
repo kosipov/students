@@ -10,6 +10,8 @@ import type {
   Catalog,
   GroupInput,
   Overview,
+  Presence,
+  ScheduleSyncState,
   SubjectInput,
   Task,
   TaskInput,
@@ -27,6 +29,8 @@ export const queryKeys = {
   subject: (id: number) => ['admin', 'subject', id] as const,
   preview: (id: number) => ['admin', 'preview', id] as const,
   categories: ['admin', 'categories'] as const,
+  presence: ['presence'] as const,
+  scheduleSync: ['admin', 'schedule'] as const,
 }
 
 // Student
@@ -37,6 +41,17 @@ export function useCatalog() {
 
 export function useTask(id: number) {
   return useQuery({ queryKey: queryKeys.task(id), queryFn: () => api.get<Task>(`/tasks/${id}`) })
+}
+
+/** Where the teacher is now; refreshed every minute, since the answer depends on the clock. */
+export function usePresence() {
+  return useQuery({
+    queryKey: queryKeys.presence,
+    queryFn: () => api.get<Presence>('/presence'),
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  })
 }
 
 /** Sends the password of a task; on success the task and the catalog are loaded again, now unlocked. */
@@ -114,6 +129,21 @@ export function useAdminSubject(id: number) {
 
 export function usePreviewTask(id: number) {
   return useQuery({ queryKey: queryKeys.preview(id), queryFn: () => api.get<Task>(`/admin/tasks/${id}/preview`) })
+}
+
+export function useScheduleSync() {
+  return useQuery({ queryKey: queryKeys.scheduleSync, queryFn: () => api.get<ScheduleSyncState>('/admin/schedule') })
+}
+
+export function useSyncScheduleNow() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<ScheduleSyncState>('/admin/schedule/sync'),
+    onSuccess: (state) => {
+      queryClient.setQueryData(queryKeys.scheduleSync, state)
+      return queryClient.invalidateQueries({ queryKey: queryKeys.presence })
+    },
+  })
 }
 
 /** Category names already in use, suggested in the task form. */

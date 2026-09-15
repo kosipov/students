@@ -4,3 +4,9 @@ auth:
   hash_salt: "hash_salt"
   signing_key: "signing_key"
   token_ttl: 86400
+
+campus:
+  # The schedule of this teacher is shown on the site as "where to find me now". Empty turns it off.
+  teacher: "Осипов Константин Сергеевич"
+  # How often the schedule is copied from campus.syktsu.ru.
+  sync_interval: 30m
