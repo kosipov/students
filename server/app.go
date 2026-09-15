@@ -59,7 +59,7 @@ func NewApp() *App {
 		// Protects the university's site from a typo like "30s".
 		syncInterval = 30 * time.Minute
 	}
-	scheduleSource := campus.Source{Client: campus.NewClient(teacher)}
+	scheduleSource := campus.Source{Client: campus.NewClient(teacher, campusClientOptions()...)}
 
 	return &App{
 		scheduleUC:           scheduleusecase.NewUseCase(schedulegorm.NewRepository(db), scheduleSource),
@@ -136,6 +136,35 @@ func (a *App) Run(port string) error {
 	defer shutdown()
 
 	return a.httpServer.Shutdown(ctx)
+}
+
+// campusClientOptions reads how to reach the university's site when it doesn't answer the server's address:
+// through a relay (CAMPUS_RELAY_URL, CAMPUS_RELAY_SECRET) or a proxy (CAMPUS_PROXY_URL). Env variables,
+// not config.yml, because they hold secrets.
+func campusClientOptions() []campus.Option {
+	var options []campus.Option
+
+	if relayURL := os.Getenv("CAMPUS_RELAY_URL"); relayURL != "" {
+		secret := os.Getenv("CAMPUS_RELAY_SECRET")
+		if secret == "" {
+			// Without the secret the relay would answer nobody, and the schedule would never load.
+			log.Fatalf("CAMPUS_RELAY_URL is set without CAMPUS_RELAY_SECRET")
+		}
+		options = append(options, campus.WithRelay(relayURL, secret))
+		log.Printf("Campus schedule is requested through relay %s", relayURL)
+	}
+
+	if raw := os.Getenv("CAMPUS_PROXY_URL"); raw != "" {
+		proxy, err := campus.ParseProxyURL(raw)
+		if err != nil {
+			// Failing on start is better than silently going around the proxy.
+			log.Fatalf("Invalid CAMPUS_PROXY_URL: %s", err)
+		}
+		options = append(options, campus.WithProxy(proxy))
+		log.Printf("Campus schedule is requested through proxy %s", proxy.Redacted())
+	}
+
+	return options
 }
 
 // InitDB connects to MySQL using MYSQL_* env variables and migrates the schema.

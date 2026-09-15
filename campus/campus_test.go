@@ -3,6 +3,7 @@ package campus
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -180,5 +181,93 @@ func TestFetchWeeksFailsOnServerError(t *testing.T) {
 
 	if _, err := NewClient(teacher, WithScheduleURL(srv.URL)).FetchWeeks(context.Background()); err == nil || !strings.Contains(err.Error(), "502") {
 		t.Errorf("FetchWeeks() error = %v, want status 502", err)
+	}
+}
+
+func TestFetchWeeksThroughProxy(t *testing.T) {
+	var (
+		mu      sync.Mutex
+		proxied []string
+	)
+	// The campus URL points to a host that doesn't exist: only the proxy can answer.
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		proxied = append(proxied, r.URL.String())
+		mu.Unlock()
+		if r.Header.Get("Proxy-Authorization") == "" {
+			w.WriteHeader(http.StatusProxyAuthRequired)
+			return
+		}
+		_ = r.ParseForm()
+		if r.PostForm.Get("name") == teacher {
+			_, _ = w.Write([]byte(readPage(t, "week_with_lessons.html")))
+			return
+		}
+		_, _ = w.Write([]byte(readPage(t, "next_week.html")))
+	}))
+	defer proxy.Close()
+
+	proxyURL, err := ParseProxyURL(strings.Replace(proxy.URL, "http://", "http://user:secret@", 1))
+	if err != nil {
+		t.Fatalf("ParseProxyURL() error = %v", err)
+	}
+	client := NewClient(teacher, WithScheduleURL("http://campus.invalid/schedule/teacher/"), WithPause(0), WithProxy(proxyURL))
+
+	weeks, err := client.FetchWeeks(context.Background())
+	if err != nil {
+		t.Fatalf("FetchWeeks() through proxy error = %v", err)
+	}
+	if len(weeks) != 2 || len(proxied) != 2 || proxied[0] != "http://campus.invalid/schedule/teacher/" {
+		t.Errorf("weeks = %d, proxied requests = %v; want both requests to the campus URL through the proxy", len(weeks), proxied)
+	}
+}
+
+func TestParseProxyURL(t *testing.T) {
+	for _, valid := range []string{"http://127.0.0.1:3128", "https://user:p%40ss@proxy.example:443", "socks5://proxy.example:1080", " http://proxy.example:8080 "} {
+		if _, err := ParseProxyURL(valid); err != nil {
+			t.Errorf("ParseProxyURL(%q) error = %v", valid, err)
+		}
+	}
+	for _, invalid := range []string{"proxy.example:3128", "ftp://proxy.example:21", "socks5h://proxy.example:1080", "http://proxy.example", "http://:3128"} {
+		if _, err := ParseProxyURL(invalid); err == nil {
+			t.Errorf("ParseProxyURL(%q) = nil error, want an error", invalid)
+		}
+	}
+}
+
+func TestFetchWeeksThroughRelay(t *testing.T) {
+	var (
+		mu      sync.Mutex
+		secrets []string
+		bodies  []string
+	)
+	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		secrets = append(secrets, r.Header.Get("X-Relay-Secret"))
+		bodies = append(bodies, string(body))
+		mu.Unlock()
+
+		if strings.Contains(string(body), "next=") {
+			_, _ = w.Write([]byte(readPage(t, "next_week.html")))
+			return
+		}
+		_, _ = w.Write([]byte(readPage(t, "week_with_lessons.html")))
+	}))
+	defer relay.Close()
+
+	client := NewClient(teacher, WithRelay(relay.URL, "s3cret"), WithPause(0))
+	weeks, err := client.FetchWeeks(context.Background())
+	if err != nil {
+		t.Fatalf("FetchWeeks() through relay error = %v", err)
+	}
+	if len(weeks) != 2 {
+		t.Fatalf("weeks = %d, want 2", len(weeks))
+	}
+	if secrets[0] != "s3cret" || secrets[1] != "s3cret" {
+		t.Errorf("secrets = %v, want the relay secret with every request", secrets)
+	}
+	if !strings.Contains(bodies[0], "name=") || !strings.Contains(bodies[1], "next=2026-09-14") {
+		t.Errorf("bodies = %v, want the same form as the site sends", bodies)
 	}
 }

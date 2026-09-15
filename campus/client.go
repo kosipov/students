@@ -4,6 +4,7 @@ package campus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,6 +28,8 @@ type Client struct {
 	scheduleURL string
 	teacher     string
 	pause       time.Duration
+	// headers are sent with every request, e.g. the secret of the relay.
+	headers map[string]string
 }
 
 type Option func(*Client)
@@ -34,6 +37,44 @@ type Option func(*Client)
 // WithScheduleURL overrides the schedule page, e.g. with a test server.
 func WithScheduleURL(scheduleURL string) Option {
 	return func(c *Client) { c.scheduleURL = scheduleURL }
+}
+
+// WithRelay asks the schedule page through a relay (a Yandex Cloud function) instead of asking
+// the university directly: the relay runs where the site answers and forwards the same form.
+// The secret keeps strangers from using the relay's public address.
+func WithRelay(relayURL string, secret string) Option {
+	return func(c *Client) {
+		c.scheduleURL = relayURL
+		c.headers["X-Relay-Secret"] = secret
+	}
+}
+
+// WithProxy sends requests to the schedule page through the proxy, e.g. when the site
+// doesn't answer the server's own address. Other outgoing requests of the app are not affected.
+func WithProxy(proxy *url.URL) Option {
+	return func(c *Client) {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.Proxy = http.ProxyURL(proxy)
+		c.httpClient = &http.Client{Timeout: requestTimeout, Transport: transport}
+	}
+}
+
+// ParseProxyURL checks a proxy address like http://user:password@host:3128 or socks5://host:1080.
+func ParseProxyURL(raw string) (*url.URL, error) {
+	proxy, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return nil, fmt.Errorf("campus proxy: %w", err)
+	}
+	switch proxy.Scheme {
+	case "http", "https", "socks5":
+	default:
+		// Without a supported scheme Go would ignore the proxy or fail on every request.
+		return nil, errors.New("campus proxy: the address must start with http://, https:// or socks5://")
+	}
+	if proxy.Hostname() == "" || proxy.Port() == "" {
+		return nil, errors.New("campus proxy: the address must have a host and a port")
+	}
+	return proxy, nil
 }
 
 func WithPause(pause time.Duration) Option {
@@ -46,6 +87,7 @@ func NewClient(teacher string, opts ...Option) *Client {
 		scheduleURL: DefaultScheduleURL,
 		teacher:     teacher,
 		pause:       requestPause,
+		headers:     map[string]string{},
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -86,6 +128,9 @@ func (c *Client) fetchWeek(ctx context.Context, form url.Values) (*Week, error) 
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", userAgent)
+	for name, value := range c.headers {
+		req.Header.Set(name, value)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
