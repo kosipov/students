@@ -9,6 +9,12 @@ type Task struct {
 	Group         *models.Group
 }
 
+// TaskAccess tells which password-protected tasks the student has opened.
+type TaskAccess interface {
+	// IsUnlocked reports whether the student entered the password of this version of the task.
+	IsUnlocked(subjectObjectId int, passwordVersion int) bool
+}
+
 // Overview summarizes all groups for the admin panel.
 type Overview struct {
 	Groups      int

@@ -276,6 +276,20 @@ a.panel-row:hover { color: inherit; background: var(--color-accent-100); }
 }
 .chip-remove:hover { background: var(--color-accent-200); }
 
+.input-row { display: flex; gap: var(--space-2); }
+.input-row .input { flex: 1; min-width: 0; }
+.icn-lock { width: 13px; height: 13px; }
+.card-kicker-row { display: flex; align-items: center; gap: 6px; }
+.result-name .icn-lock { display: inline-block; margin-left: 8px; vertical-align: 2px; color: var(--text-muted); }
+.tag-with-icon { gap: 5px; }
+.task-row-password { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-1); font-size: 13.5px; }
+.secret { font-family: ui-monospace, Menlo, monospace; font-size: 14px; padding: 1px 6px; background: var(--color-accent-100); color: var(--color-accent-900); user-select: all; }
+.btn-small { padding: 2px var(--space-2); font-size: 13px; }
+.unlock-card { max-width: 420px; padding: var(--space-8); }
+.unlock-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
+.unlock-head .icn { width: 20px; height: 20px; color: var(--color-accent-700); }
+.unlock-head h2 { font-size: 24px; margin: 0; }
+
 .filters { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-6); }
 
 .checkbox-row { display: flex; align-items: center; gap: var(--space-3); font-size: 14px; margin-bottom: var(--space-6); cursor: pointer; }

@@ -37,6 +37,8 @@ type catalogTask struct {
 	// IsDocument marks tasks shown as a page on the site; other tasks are opened by href.
 	IsDocument bool     `json:"isDocument"`
 	Categories []string `json:"categories"`
+	// Locked marks a password-protected task the student hasn't unlocked; its href is empty.
+	Locked bool `json:"locked"`
 }
 
 type taskResponse struct {
@@ -46,8 +48,11 @@ type taskResponse struct {
 	Href       string `json:"href"`
 	Hidden     bool   `json:"hidden"`
 	IsDocument bool   `json:"isDocument"`
-	Group      ref    `json:"group"`
-	Subject    ref    `json:"subject"`
+	// Protected tasks have a password; Locked ones are returned without the link and the document.
+	Protected bool `json:"protected"`
+	Locked    bool `json:"locked"`
+	Group     ref  `json:"group"`
+	Subject   ref  `json:"subject"`
 	// ContentHTML is the rendered document, null when it has never been downloaded.
 	ContentHTML *string    `json:"contentHtml"`
 	UpdatedAt   *time.Time `json:"updatedAt"`
@@ -78,6 +83,7 @@ type adminTask struct {
 	Comment            string     `json:"comment"`
 	Hidden             bool       `json:"hidden"`
 	Categories         []string   `json:"categories"`
+	Password           string     `json:"password"`
 	IsDocument         bool       `json:"isDocument"`
 	ContentUnsupported bool       `json:"contentUnsupported"`
 	FetchedAt          *time.Time `json:"fetchedAt"`
@@ -140,6 +146,11 @@ type taskRequest struct {
 	Comment    *string   `json:"comment"`
 	Hidden     *bool     `json:"hidden"`
 	Categories *[]string `json:"categories"`
+	Password   *string   `json:"password"`
+}
+
+type unlockRequest struct {
+	Password string `json:"password"`
 }
 
 type categoriesResponse struct {
@@ -194,6 +205,7 @@ func (h *Handler) toAdminTask(subjectObject *models.SubjectObject) adminTask {
 		Comment:            subjectObject.Comment,
 		Hidden:             subjectObject.Hidden,
 		Categories:         subjectObject.CategoryNames(),
+		Password:           subjectObject.Password,
 		IsDocument:         h.subjectUseCase.IsDocument(subjectObject),
 		ContentUnsupported: subjectObject.ContentUnsupported,
 		FetchedAt:          subjectObject.ContentFetchedAt,

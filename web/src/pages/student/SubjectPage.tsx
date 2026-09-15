@@ -2,6 +2,7 @@ import { useParams, useSearchParams } from 'react-router'
 import { Breadcrumbs } from '../../components/Breadcrumbs'
 import { Corners } from '../../components/Corners'
 import { NotFound } from '../../components/PageState'
+import { LockIcon } from '../../components/Icons'
 import { TaskLink } from '../../components/TaskLink'
 import { useSelection, useStudentShell } from '../../layouts/StudentLayout'
 import { categoriesOf, categoryKey, filterByCategory, findGroup, findSubject } from '../../lib/catalog'
@@ -86,7 +87,10 @@ export function SubjectPage() {
             <TaskLink key={task.id} task={task} className="card blueprint lift card-link">
               <Corners />
               {/* The number stays the task's place in the full list, so it doesn't change with the filter. */}
-              <div className="card-kicker">Задание {ordinal(subject.tasks.indexOf(task))}</div>
+              <div className="card-kicker card-kicker-row">
+                Задание {ordinal(subject.tasks.indexOf(task))}
+                {task.locked && <LockIcon label="Защищено паролем" />}
+              </div>
               <div className="card-title">{task.name}</div>
               {task.comment && <div className="card-body">{task.comment}</div>}
             </TaskLink>

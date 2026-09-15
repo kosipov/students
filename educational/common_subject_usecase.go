@@ -27,7 +27,12 @@ type CommonSubjectUseCase interface {
 	// when it is outdated. ErrSubjectObjectNotDocument is returned (along with the task)
 	// when the link can't be shown on the site. Hidden subject objects and subject objects
 	// of hidden groups are not found.
-	GetTask(ctx context.Context, subjectObjectId int) (*Task, error)
+	// A password-protected task the student hasn't unlocked is returned without the document
+	// along with ErrTaskLocked.
+	GetTask(ctx context.Context, subjectObjectId int, access TaskAccess) (*Task, error)
+	// UnlockTask checks the password of a task visible to students. It returns ErrWrongPassword
+	// for a wrong one and the subject object, whose PasswordVersion should be remembered, for the right one.
+	UnlockTask(ctx context.Context, subjectObjectId int, password string) (*models.SubjectObject, error)
 	// PreviewTask works like GetTask, but shows hidden tasks too.
 	PreviewTask(ctx context.Context, subjectObjectId int) (*Task, error)
 }

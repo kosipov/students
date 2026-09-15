@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"github.com/jinzhu/gorm"
 	"github.com/kosipov/students/educational"
@@ -9,6 +10,7 @@ import (
 	"golang.org/x/sync/singleflight"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -103,6 +105,7 @@ func (subjectUseCase *SubjectUseCase) CreateSubjectObject(ctx context.Context, s
 		Comment:    input.Comment,
 		Hidden:     input.Hidden,
 		Categories: categories,
+		Password:   input.Password,
 	}
 	if err := subjectUseCase.subjectRepo.CreateSubjectObject(ctx, subjectObject); err != nil {
 		return nil, err
@@ -134,6 +137,10 @@ func (subjectUseCase *SubjectUseCase) UpdateSubjectObject(ctx context.Context, i
 	}
 	if patch.Hidden != nil {
 		subjectObject.Hidden = *patch.Hidden
+	}
+	if patch.Password != nil && *patch.Password != subjectObject.Password {
+		subjectObject.Password = *patch.Password
+		subjectObject.PasswordVersion++
 	}
 	if patch.Categories != nil {
 		categories, err := subjectUseCase.toCategories(ctx, *patch.Categories)
@@ -215,7 +222,39 @@ func (subjectUseCase *SubjectUseCase) IsDocument(subjectObject *models.SubjectOb
 	return !subjectObject.ContentUnsupported && subjectUseCase.contentFetcher.Supports(subjectObject.Href)
 }
 
-func (subjectUseCase *SubjectUseCase) GetTask(ctx context.Context, subjectObjectId int) (*educational.Task, error) {
+func (subjectUseCase *SubjectUseCase) GetTask(ctx context.Context, subjectObjectId int, access educational.TaskAccess) (*educational.Task, error) {
+	task, err := subjectUseCase.getVisibleTask(ctx, subjectObjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	subjectObject := task.SubjectObject
+	if subjectObject.IsProtected() && !access.IsUnlocked(subjectObject.ID, subjectObject.PasswordVersion) {
+		return task, educational.ErrTaskLocked
+	}
+
+	return subjectUseCase.loadDocument(task)
+}
+
+func (subjectUseCase *SubjectUseCase) UnlockTask(ctx context.Context, subjectObjectId int, password string) (*models.SubjectObject, error) {
+	task, err := subjectUseCase.getVisibleTask(ctx, subjectObjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	subjectObject := task.SubjectObject
+	if !subjectObject.IsProtected() {
+		return subjectObject, nil
+	}
+	// Constant time, so response timing doesn't tell how much of a guess was right.
+	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(password)), []byte(subjectObject.Password)) != 1 {
+		return nil, educational.ErrWrongPassword
+	}
+	return subjectObject, nil
+}
+
+// getVisibleTask loads a task students can see: neither the task nor its group is hidden.
+func (subjectUseCase *SubjectUseCase) getVisibleTask(ctx context.Context, subjectObjectId int) (*educational.Task, error) {
 	task, err := subjectUseCase.getTask(ctx, subjectObjectId)
 	if err != nil {
 		return nil, err
@@ -223,8 +262,7 @@ func (subjectUseCase *SubjectUseCase) GetTask(ctx context.Context, subjectObject
 	if task.SubjectObject.Hidden || task.Group.Hidden {
 		return nil, educational.ErrSubjectObjectNotFound
 	}
-
-	return subjectUseCase.loadDocument(task)
+	return task, nil
 }
 
 func (subjectUseCase *SubjectUseCase) PreviewTask(ctx context.Context, subjectObjectId int) (*educational.Task, error) {

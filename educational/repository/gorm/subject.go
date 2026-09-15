@@ -83,10 +83,12 @@ func (subjectRepo *SubjectRepository) CreateSubjectObject(ctx context.Context, s
 func (subjectRepo *SubjectRepository) UpdateSubjectObject(ctx context.Context, subjectObject *models.SubjectObject) error {
 	return subjectRepo.db.Transaction(func(tx *gorm.DB) error {
 		err := tx.Model(&models.SubjectObject{ID: subjectObject.ID}).Updates(map[string]interface{}{
-			"name":    subjectObject.Name,
-			"href":    subjectObject.Href,
-			"comment": subjectObject.Comment,
-			"hidden":  subjectObject.Hidden,
+			"name":             subjectObject.Name,
+			"href":             subjectObject.Href,
+			"comment":          subjectObject.Comment,
+			"hidden":           subjectObject.Hidden,
+			"password":         subjectObject.Password,
+			"password_version": subjectObject.PasswordVersion,
 		}).Error
 		if err != nil {
 			return err

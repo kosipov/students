@@ -6,7 +6,7 @@ import type { CatalogTask } from '../api/types'
 import { Modal } from './Modal'
 import { TaskLink } from './TaskLink'
 
-const task: CatalogTask = { id: 7, name: 'Темы', comment: '', href: 'https://1drv.ms/t/c/1/abc', isDocument: true, categories: [] }
+const task: CatalogTask = { id: 7, name: 'Темы', comment: '', href: 'https://1drv.ms/t/c/1/abc', isDocument: true, categories: [], locked: false }
 
 describe('TaskLink', () => {
   it('opens a document as a page on the site', () => {
@@ -30,6 +30,17 @@ describe('TaskLink', () => {
     expect(link).toHaveAttribute('href', 'https://example.com/file.pdf')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('opens a locked link on the site to ask for the password', () => {
+    render(
+      <MemoryRouter>
+        <TaskLink task={{ ...task, isDocument: false, href: '', locked: true }}>Тест</TaskLink>
+      </MemoryRouter>,
+    )
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', '/tasks/7')
+    expect(link).not.toHaveAttribute('target')
   })
 
   it('is not a link when there is nothing to open', () => {

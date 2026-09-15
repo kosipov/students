@@ -13,7 +13,8 @@ interface TaskLinkProps {
  * any other link (a PDF, an external site) in a new tab.
  */
 export function TaskLink({ task, className, children }: TaskLinkProps) {
-  if (task.isDocument) {
+  // A locked task, even a plain link, opens on the site first to ask for the password.
+  if (task.isDocument || task.locked) {
     return (
       <Link to={`/tasks/${task.id}`} className={className}>
         {children}

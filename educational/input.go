@@ -12,6 +12,7 @@ const (
 	// MaxCategoryLength fits the varchar(100) column with room to spare for the unique index.
 	MaxCategoryLength = 50
 	MaxCategories     = 10
+	MaxPasswordLength = 100
 )
 
 type GroupInput struct {
@@ -35,6 +36,8 @@ type SubjectObjectInput struct {
 	Comment    string
 	Hidden     bool
 	Categories []string
+	// Password protects the task; empty means no password.
+	Password string
 }
 
 // SubjectObjectPatch changes only the fields that are set.
@@ -45,6 +48,8 @@ type SubjectObjectPatch struct {
 	Hidden  *bool
 	// Categories replaces all categories of the subject object when set.
 	Categories *[]string
+	// Password replaces the password when set; an empty one removes it.
+	Password *string
 }
 
 // Normalize trims the fields and validates them.
@@ -75,6 +80,7 @@ func (in *SubjectObjectInput) Normalize() error {
 	in.Href = v.href("href", in.Href)
 	in.Comment = v.text("comment", in.Comment)
 	in.Categories = v.categories("categories", in.Categories)
+	in.Password = v.password("password", in.Password)
 	return v.err()
 }
 
@@ -95,6 +101,10 @@ func (p *SubjectObjectPatch) Normalize() error {
 	if p.Categories != nil {
 		categories := v.categories("categories", *p.Categories)
 		p.Categories = &categories
+	}
+	if p.Password != nil {
+		password := v.password("password", *p.Password)
+		p.Password = &password
 	}
 	return v.err()
 }
@@ -169,6 +179,15 @@ func (v *validator) categories(field string, values []string) []string {
 		v.fail(field, "Не больше 10 категорий у одного задания")
 	}
 	return result
+}
+
+// password is trimmed: students type it by hand, and a space nobody sees must not lock them out.
+func (v *validator) password(field, value string) string {
+	value = strings.TrimSpace(value)
+	if utf8.RuneCountInString(value) > MaxPasswordLength {
+		v.fail(field, "Пароль — не больше 100 символов")
+	}
+	return value
 }
 
 func (v *validator) limit(field, value string) string {

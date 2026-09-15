@@ -30,6 +30,8 @@ func respondError(c *gin.Context, err error) {
 		c.AbortWithStatusJSON(http.StatusNotFound, errorResponse{Error: "Предмет не найден"})
 	case errors.Is(err, educational.ErrSubjectObjectNotFound):
 		c.AbortWithStatusJSON(http.StatusNotFound, errorResponse{Error: "Задание не найдено"})
+	case errors.Is(err, educational.ErrWrongPassword):
+		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, errorResponse{Error: "Неверный пароль", Fields: map[string]string{"password": "Неверный пароль"}})
 	case errors.Is(err, educational.ErrSubjectObjectNotDocument):
 		c.AbortWithStatusJSON(http.StatusConflict, errorResponse{Error: "Это задание открывается по ссылке, загружать нечего"})
 	default:

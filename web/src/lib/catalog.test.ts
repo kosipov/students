@@ -12,8 +12,8 @@ const catalog: Catalog = {
           id: 10,
           name: 'Проектирование веб-приложений',
           tasks: [
-            { id: 100, name: 'Темы курсовых работ', comment: '', href: 'https://1drv.ms/t/c/1', isDocument: true, categories: [] },
-            { id: 101, name: 'Требования к записке', comment: '', href: 'https://example.com', isDocument: false, categories: [] },
+            { id: 100, name: 'Темы курсовых работ', comment: '', href: 'https://1drv.ms/t/c/1', isDocument: true, categories: [], locked: false },
+            { id: 101, name: 'Требования к записке', comment: '', href: 'https://example.com', isDocument: false, categories: [], locked: false },
           ],
         },
       ],
@@ -25,7 +25,7 @@ const catalog: Catalog = {
         {
           id: 20,
           name: 'Поисковая оптимизация',
-          tasks: [{ id: 200, name: 'Лабораторная работа №1', comment: '', href: '', isDocument: false, categories: [] }],
+          tasks: [{ id: 200, name: 'Лабораторная работа №1', comment: '', href: '', isDocument: false, categories: [], locked: false }],
         },
       ],
     },
@@ -57,9 +57,9 @@ describe('countTasks', () => {
 
 describe('categories', () => {
   const tasks = [
-    { id: 1, name: 'Темы', comment: '', href: '', isDocument: false, categories: ['Курсовые'] },
-    { id: 2, name: 'Методичка', comment: '', href: '', isDocument: false, categories: ['Методички', 'курсовые'] },
-    { id: 3, name: 'Лаба', comment: '', href: '', isDocument: false, categories: [] },
+    { id: 1, name: 'Темы', comment: '', href: '', isDocument: false, categories: ['Курсовые'], locked: false },
+    { id: 2, name: 'Методичка', comment: '', href: '', isDocument: false, categories: ['Методички', 'курсовые'], locked: false },
+    { id: 3, name: 'Лаба', comment: '', href: '', isDocument: false, categories: [], locked: false },
   ]
 
   it('lists each category once regardless of letter case, sorted', () => {

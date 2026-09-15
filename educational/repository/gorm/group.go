@@ -71,7 +71,7 @@ func (g *GroupRepository) DeleteGroup(ctx context.Context, group *models.Group) 
 }
 
 // subjectObjectListColumns are the subject object columns needed for lists: everything but the stored document.
-const subjectObjectListColumns = "id, name, comment, href, subject_id, hidden, " +
+const subjectObjectListColumns = "id, name, comment, href, subject_id, hidden, password, password_version, " +
 	"content_fetched_at, content_checked_at, content_error, content_unsupported"
 
 // preloadSubjects loads subjects with their subject objects for lists.

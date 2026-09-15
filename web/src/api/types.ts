@@ -13,6 +13,8 @@ export interface CatalogTask {
   /** Shown as a page on the site; other tasks are opened by href. */
   isDocument: boolean
   categories: string[]
+  /** Protected by a password the student hasn't entered; href is empty. */
+  locked: boolean
 }
 
 export interface CatalogSubject {
@@ -38,6 +40,9 @@ export interface Task {
   href: string
   hidden: boolean
   isDocument: boolean
+  protected: boolean
+  /** The password hasn't been entered: no href and no document. */
+  locked: boolean
   group: Ref
   subject: Ref
   /** Rendered document, null when it has never been downloaded. */
@@ -72,6 +77,8 @@ export interface AdminTask {
   comment: string
   hidden: boolean
   categories: string[]
+  /** Empty when the task has no password. */
+  password: string
   isDocument: boolean
   contentUnsupported: boolean
   fetchedAt: string | null
@@ -126,4 +133,6 @@ export interface TaskInput {
   hidden?: boolean
   /** Replaces all categories of the task. */
   categories?: string[]
+  /** An empty password removes the protection. */
+  password?: string
 }

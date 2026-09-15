@@ -1,4 +1,5 @@
 import type { Catalog } from '../../api/types'
+import { LockIcon } from '../../components/Icons'
 import { TaskLink } from '../../components/TaskLink'
 import { searchTasks } from '../../lib/catalog'
 
@@ -19,7 +20,10 @@ export function SearchResults({ catalog, query }: { catalog: Catalog; query: str
           {results.map(({ task, group, subject }) => (
             <TaskLink key={task.id} task={task} className="result-row rowhover">
               <span>
-                <span className="result-name">{task.name}</span>
+                <span className="result-name">
+                  {task.name}
+                  {task.locked && <LockIcon label="Защищено паролем" />}
+                </span>
                 <span className="result-where">
                   {group.name} · {subject.name}
                 </span>

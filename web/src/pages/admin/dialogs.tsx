@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError } from '../../api/client'
 import {
   useCategories,
@@ -14,6 +14,7 @@ import { addCategories, CategoriesField } from '../../components/CategoriesField
 import { Modal } from '../../components/Modal'
 import { TextField } from '../../components/TextField'
 import { useToast } from '../../components/Toast'
+import { generatePassword } from '../../lib/password'
 
 interface FormDialogProps {
   title: string
@@ -55,6 +56,36 @@ function FormDialog({ title, pending, error, onSubmit, onClose, children }: Form
 
 function fieldErrors(error: unknown): Record<string, string> {
   return error instanceof ApiError ? error.fields : {}
+}
+
+function PasswordField({ value, onChange, error }: { value: string; onChange: (value: string) => void; error?: string }) {
+  const id = useId()
+  return (
+    <div className="field form-field">
+      <label htmlFor={id}>Пароль для студентов</label>
+      <div className="input-row">
+        {/* Plain text on purpose: the admin needs to see the password to tell it to students. */}
+        <input
+          id={id}
+          className="input"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+          maxLength={100}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={`${id}-hint`}
+        />
+        <button type="button" className="btn btn-secondary" onClick={() => onChange(generatePassword())}>
+          Сгенерировать
+        </button>
+      </div>
+      <div id={`${id}-hint`} className="field-hint">
+        Студенты введут его, чтобы открыть задание и ссылку на файл. Пустое поле — без пароля.
+      </div>
+      {error && <div className="field-error">{error}</div>}
+    </div>
+  )
 }
 
 function VisibleCheckbox({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
@@ -138,6 +169,7 @@ export function TaskDialog({ subjectId, task, onClose }: { subjectId: number; ta
   const [visible, setVisible] = useState(task ? !task.hidden : true)
   const [categories, setCategories] = useState<string[]>(task?.categories ?? [])
   const [categoryDraft, setCategoryDraft] = useState('')
+  const [password, setPassword] = useState(task?.password ?? '')
   const suggestions = useCategories()
   const errors = fieldErrors(mutation.error)
 
@@ -146,7 +178,7 @@ export function TaskDialog({ subjectId, task, onClose }: { subjectId: number; ta
     const allCategories = addCategories(categories, categoryDraft)
     setCategories(allCategories)
     setCategoryDraft('')
-    const input = { name, href, comment, hidden: !visible, categories: allCategories }
+    const input = { name, href, comment, hidden: !visible, categories: allCategories, password }
     const onSuccess = () => {
       toast('Сохранено')
       onClose()
@@ -190,6 +222,7 @@ export function TaskDialog({ subjectId, task, onClose }: { subjectId: number; ta
         suggestions={suggestions.data ?? []}
         error={errors.categories}
       />
+      <PasswordField value={password} onChange={setPassword} error={errors.password} />
       <VisibleCheckbox checked={visible} onChange={setVisible} />
     </FormDialog>
   )

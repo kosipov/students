@@ -15,6 +15,10 @@ var (
 	// that can't be shown on the site, so the link should be opened as is.
 	ErrSubjectObjectNotDocument = errors.New("subject object does not link to a document")
 
+	// ErrTaskLocked means the task has a password the student hasn't entered yet.
+	ErrTaskLocked    = errors.New("task is locked")
+	ErrWrongPassword = errors.New("wrong task password")
+
 	ErrContentNotModified = errors.New("content not modified")
 	ErrContentUnsupported = errors.New("content type is not supported")
 )

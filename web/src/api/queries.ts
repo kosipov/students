@@ -39,6 +39,19 @@ export function useTask(id: number) {
   return useQuery({ queryKey: queryKeys.task(id), queryFn: () => api.get<Task>(`/tasks/${id}`) })
 }
 
+/** Sends the password of a task; on success the task and the catalog are loaded again, now unlocked. */
+export function useUnlockTask(id: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (password: string) => api.post<void>(`/tasks/${id}/unlock`, { password }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.task(id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.catalog }),
+      ]),
+  })
+}
+
 // Auth
 
 /** The signed in user, or null for a guest. */

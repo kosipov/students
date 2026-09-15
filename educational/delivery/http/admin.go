@@ -208,6 +208,7 @@ func (h *Handler) CreateTask(c *gin.Context) {
 	if request.Categories != nil {
 		input.Categories = *request.Categories
 	}
+	input.Password = valueOrEmpty(request.Password)
 	subjectObject, err := h.subjectUseCase.CreateSubjectObject(c.Request.Context(), subjectId, input)
 	if err != nil {
 		respondError(c, err)
@@ -232,6 +233,7 @@ func (h *Handler) UpdateTask(c *gin.Context) {
 		Comment:    request.Comment,
 		Hidden:     request.Hidden,
 		Categories: request.Categories,
+		Password:   request.Password,
 	})
 	if err != nil {
 		respondError(c, err)

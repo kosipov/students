@@ -17,7 +17,7 @@ func TestGetTaskFirstViewDownloadsDocument(t *testing.T) {
 	fetcher := &fakeFetcher{content: &educational.Content{Body: []byte("# Задание"), ETag: "v1"}}
 	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, Href: oneDriveHref}, fetcher)
 
-	task, err := uc.GetTask(context.Background(), 1)
+	task, err := uc.GetTask(context.Background(), 1, noAccess)
 	if err != nil {
 		t.Fatalf("GetTask() error = %v", err)
 	}
@@ -41,7 +41,7 @@ func TestGetTaskFreshDocumentIsNotDownloaded(t *testing.T) {
 		ContentFetchedAt: timeAgo(time.Minute), ContentCheckedAt: timeAgo(time.Minute),
 	}, fetcher)
 
-	task, err := uc.GetTask(context.Background(), 1)
+	task, err := uc.GetTask(context.Background(), 1, noAccess)
 	if err != nil {
 		t.Fatalf("GetTask() error = %v", err)
 	}
@@ -60,7 +60,7 @@ func TestGetTaskOutdatedDocumentIsShownAndRefreshedInBackground(t *testing.T) {
 		ContentFetchedAt: timeAgo(time.Hour), ContentCheckedAt: timeAgo(time.Hour),
 	}, fetcher)
 
-	task, err := uc.GetTask(context.Background(), 1)
+	task, err := uc.GetTask(context.Background(), 1, noAccess)
 	if err != nil {
 		t.Fatalf("GetTask() error = %v", err)
 	}
@@ -82,7 +82,7 @@ func TestGetTaskKeepsDocumentWhenSourceFails(t *testing.T) {
 		ContentFetchedAt: timeAgo(time.Hour), ContentCheckedAt: timeAgo(time.Hour),
 	}, fetcher)
 
-	if _, err := uc.GetTask(context.Background(), 1); err != nil {
+	if _, err := uc.GetTask(context.Background(), 1, noAccess); err != nil {
 		t.Fatalf("GetTask() error = %v", err)
 	}
 
@@ -97,7 +97,7 @@ func TestGetTaskFailedFirstDownloadIsNotRetriedOnEveryView(t *testing.T) {
 	fetcher := &fakeFetcher{err: errors.New("onedrive is down")}
 	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, Href: oneDriveHref}, fetcher)
 
-	task, err := uc.GetTask(context.Background(), 1)
+	task, err := uc.GetTask(context.Background(), 1, noAccess)
 	if err != nil {
 		t.Fatalf("GetTask() error = %v", err)
 	}
@@ -107,7 +107,7 @@ func TestGetTaskFailedFirstDownloadIsNotRetriedOnEveryView(t *testing.T) {
 
 	checkedAt := *repo.stored(1).ContentCheckedAt
 	uc.now = func() time.Time { return checkedAt.Add(time.Minute) }
-	if _, err := uc.GetTask(context.Background(), 1); err != nil {
+	if _, err := uc.GetTask(context.Background(), 1, noAccess); err != nil {
 		t.Fatalf("second GetTask() error = %v", err)
 	}
 	if fetcher.callCount() != 1 {
@@ -118,7 +118,7 @@ func TestGetTaskFailedFirstDownloadIsNotRetriedOnEveryView(t *testing.T) {
 func TestGetTaskNotDocument(t *testing.T) {
 	uc, _ := newTestUseCase(models.SubjectObject{ID: 1, Href: "https://example.com/task"}, &fakeFetcher{})
 
-	task, err := uc.GetTask(context.Background(), 1)
+	task, err := uc.GetTask(context.Background(), 1, noAccess)
 	if !errors.Is(err, educational.ErrSubjectObjectNotDocument) || task.SubjectObject.Href != "https://example.com/task" {
 		t.Fatalf("GetTask() = %+v, %v; want link with ErrSubjectObjectNotDocument", task, err)
 	}
@@ -128,14 +128,14 @@ func TestGetTaskUnsupportedFile(t *testing.T) {
 	fetcher := &fakeFetcher{err: educational.ErrContentUnsupported}
 	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, Href: oneDriveHref}, fetcher)
 
-	if _, err := uc.GetTask(context.Background(), 1); !errors.Is(err, educational.ErrSubjectObjectNotDocument) {
+	if _, err := uc.GetTask(context.Background(), 1, noAccess); !errors.Is(err, educational.ErrSubjectObjectNotDocument) {
 		t.Fatalf("GetTask() error = %v, want ErrSubjectObjectNotDocument", err)
 	}
 	if !repo.stored(1).ContentUnsupported {
 		t.Fatal("unsupported file is not remembered")
 	}
 
-	if _, err := uc.GetTask(context.Background(), 1); !errors.Is(err, educational.ErrSubjectObjectNotDocument) {
+	if _, err := uc.GetTask(context.Background(), 1, noAccess); !errors.Is(err, educational.ErrSubjectObjectNotDocument) {
 		t.Fatalf("second GetTask() error = %v, want ErrSubjectObjectNotDocument", err)
 	}
 	if fetcher.callCount() != 1 {
@@ -146,12 +146,12 @@ func TestGetTaskUnsupportedFile(t *testing.T) {
 func TestGetTaskNotFound(t *testing.T) {
 	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, Href: oneDriveHref}, &fakeFetcher{})
 
-	if _, err := uc.GetTask(context.Background(), 2); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
+	if _, err := uc.GetTask(context.Background(), 2, noAccess); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
 		t.Errorf("GetTask() for missing task error = %v, want ErrSubjectObjectNotFound", err)
 	}
 
 	repo.addSubjectObject(models.SubjectObject{ID: 3, SubjectId: 404})
-	if _, err := uc.GetTask(context.Background(), 3); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
+	if _, err := uc.GetTask(context.Background(), 3, noAccess); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
 		t.Errorf("GetTask() for task without subject error = %v, want ErrSubjectObjectNotFound", err)
 	}
 }
@@ -190,7 +190,7 @@ func TestGetTaskHidden(t *testing.T) {
 
 	t.Run("hidden subject object", func(t *testing.T) {
 		uc, _ := newTestUseCase(models.SubjectObject{ID: 1, Href: oneDriveHref, Hidden: true}, fetcher)
-		if _, err := uc.GetTask(context.Background(), 1); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
+		if _, err := uc.GetTask(context.Background(), 1, noAccess); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
 			t.Fatalf("GetTask() error = %v, want ErrSubjectObjectNotFound", err)
 		}
 	})
@@ -199,7 +199,7 @@ func TestGetTaskHidden(t *testing.T) {
 		uc, repo := newTestUseCase(models.SubjectObject{ID: 1, Href: "https://example.com/task"}, fetcher)
 		repo.setGroupHidden(testGroupId, true)
 		// Even external links must not be revealed.
-		if task, err := uc.GetTask(context.Background(), 1); !errors.Is(err, educational.ErrSubjectObjectNotFound) || task != nil {
+		if task, err := uc.GetTask(context.Background(), 1, noAccess); !errors.Is(err, educational.ErrSubjectObjectNotFound) || task != nil {
 			t.Fatalf("GetTask() = %+v, %v; want ErrSubjectObjectNotFound without task", task, err)
 		}
 	})
@@ -350,7 +350,7 @@ func TestDownloadOfOldLinkIsNotStoredAfterLinkChange(t *testing.T) {
 	uc := NewSubjectUseCase(repo, fetcher)
 
 	// A student opens the task, the download of the old link hangs.
-	go func() { _, _ = uc.GetTask(context.Background(), 1) }()
+	go func() { _, _ = uc.GetTask(context.Background(), 1, noAccess) }()
 	<-fetcher.started
 
 	href := "https://example.com/other"
@@ -505,5 +505,104 @@ func TestSubjectObjectCategoriesValidation(t *testing.T) {
 	var validationErr *educational.ValidationError
 	if !errors.As(err, &validationErr) || validationErr.Fields["categories"] == "" {
 		t.Fatalf("UpdateSubjectObject() error = %v, want categories error", err)
+	}
+}
+
+// Passwords
+
+func TestGetTaskWithPassword(t *testing.T) {
+	fetcher := &fakeFetcher{content: &educational.Content{Body: []byte("# Секрет"), ETag: "v1"}}
+	uc, _ := newTestUseCase(models.SubjectObject{ID: 1, Href: oneDriveHref, Password: "k3y", PasswordVersion: 2}, fetcher)
+	ctx := context.Background()
+
+	task, err := uc.GetTask(ctx, 1, noAccess)
+	if !errors.Is(err, educational.ErrTaskLocked) || task == nil || task.SubjectObject.Content != "" {
+		t.Fatalf("GetTask() without password = %+v, %v; want locked task without document", task, err)
+	}
+	if fetcher.callCount() != 0 {
+		t.Errorf("fetch calls = %d, a locked document must not be loaded for the student", fetcher.callCount())
+	}
+
+	if _, err := uc.GetTask(ctx, 1, taskAccess{1: 1}); !errors.Is(err, educational.ErrTaskLocked) {
+		t.Errorf("GetTask() with the previous password version error = %v, want ErrTaskLocked", err)
+	}
+
+	task, err = uc.GetTask(ctx, 1, taskAccess{1: 2})
+	if err != nil || task.SubjectObject.Content != "# Секрет" {
+		t.Errorf("GetTask() after unlocking = %+v, %v; want the document", task, err)
+	}
+}
+
+func TestUnlockTask(t *testing.T) {
+	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, Href: oneDriveHref, Password: "k3y", PasswordVersion: 4}, &fakeFetcher{})
+	ctx := context.Background()
+
+	if _, err := uc.UnlockTask(ctx, 1, "K3Y"); !errors.Is(err, educational.ErrWrongPassword) {
+		t.Errorf("UnlockTask() with wrong case error = %v, want ErrWrongPassword", err)
+	}
+	if _, err := uc.UnlockTask(ctx, 1, ""); !errors.Is(err, educational.ErrWrongPassword) {
+		t.Errorf("UnlockTask() with empty password error = %v, want ErrWrongPassword", err)
+	}
+
+	subjectObject, err := uc.UnlockTask(ctx, 1, " k3y ")
+	if err != nil || subjectObject.PasswordVersion != 4 {
+		t.Fatalf("UnlockTask() = %+v, %v; want the task with its password version", subjectObject, err)
+	}
+
+	repo.addSubjectObject(models.SubjectObject{ID: 2, SubjectId: testSubjectId})
+	if _, err := uc.UnlockTask(ctx, 2, "anything"); err != nil {
+		t.Errorf("UnlockTask() of a task without password error = %v, want nil", err)
+	}
+
+	repo.addSubjectObject(models.SubjectObject{ID: 3, SubjectId: testSubjectId, Password: "k3y", Hidden: true})
+	if _, err := uc.UnlockTask(ctx, 3, "k3y"); !errors.Is(err, educational.ErrSubjectObjectNotFound) {
+		t.Errorf("UnlockTask() of a hidden task error = %v, want ErrSubjectObjectNotFound", err)
+	}
+}
+
+func TestPreviewTaskIgnoresPassword(t *testing.T) {
+	fetcher := &fakeFetcher{content: &educational.Content{Body: []byte("# Секрет"), ETag: "v1"}}
+	uc, _ := newTestUseCase(models.SubjectObject{ID: 1, Href: oneDriveHref, Password: "k3y"}, fetcher)
+
+	task, err := uc.PreviewTask(context.Background(), 1)
+	if err != nil || task.SubjectObject.Content != "# Секрет" {
+		t.Errorf("PreviewTask() = %+v, %v; want the document for the admin", task, err)
+	}
+}
+
+func TestPasswordChangeIncrementsVersion(t *testing.T) {
+	uc, repo := newTestUseCase(models.SubjectObject{ID: 1, Name: "Задание"}, &fakeFetcher{})
+	ctx := context.Background()
+
+	set := func(password string) {
+		t.Helper()
+		if _, err := uc.UpdateSubjectObject(ctx, 1, educational.SubjectObjectPatch{Password: &password}); err != nil {
+			t.Fatalf("UpdateSubjectObject(password %q) error = %v", password, err)
+		}
+	}
+
+	set(" k3y ")
+	if stored := repo.stored(1); stored.Password != "k3y" || stored.PasswordVersion != 1 {
+		t.Errorf("after setting: password %q version %d, want trimmed password and version 1", stored.Password, stored.PasswordVersion)
+	}
+	set("k3y")
+	if repo.stored(1).PasswordVersion != 1 {
+		t.Error("saving the same password must keep students' access")
+	}
+
+	name := "Задание 2"
+	if _, err := uc.UpdateSubjectObject(ctx, 1, educational.SubjectObjectPatch{Name: &name}); err != nil || repo.stored(1).Password != "k3y" {
+		t.Errorf("patch without password changed it: %q, %v", repo.stored(1).Password, err)
+	}
+
+	set("n3w")
+	set("")
+	if stored := repo.stored(1); stored.IsProtected() || stored.PasswordVersion != 3 {
+		t.Errorf("after changing and removing: protected %v version %d, want unprotected and version 3", stored.IsProtected(), stored.PasswordVersion)
+	}
+
+	subjectObject, err := uc.CreateSubjectObject(ctx, testSubjectId, educational.SubjectObjectInput{Name: "Новое", Password: " p4ss "})
+	if err != nil || repo.stored(subjectObject.ID).Password != "p4ss" {
+		t.Errorf("CreateSubjectObject() with password = %+v, %v; want trimmed password stored", subjectObject, err)
 	}
 }

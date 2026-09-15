@@ -6,7 +6,7 @@ import type { AdminTask } from '../../api/types'
 import { Breadcrumbs } from '../../components/Breadcrumbs'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Corners } from '../../components/Corners'
-import { PlusIcon } from '../../components/Icons'
+import { LockIcon, PlusIcon } from '../../components/Icons'
 import { Loading, QueryError } from '../../components/PageState'
 import { useToast } from '../../components/Toast'
 import { useRememberAdminContext } from '../../layouts/AdminLayout'
@@ -43,6 +43,12 @@ export function SubjectPage() {
         onError: () => toast('Не удалось изменить видимость'),
       },
     )
+
+  const copyPassword = (password: string) =>
+    navigator.clipboard
+      .writeText(password)
+      .then(() => toast('Пароль скопирован'))
+      .catch(() => toast('Не удалось скопировать, выделите пароль вручную'))
 
   const refreshTask = (task: AdminTask) =>
     refresh.mutate(task.id, {
@@ -85,6 +91,11 @@ export function SubjectPage() {
                   <div className="task-row-head">
                     <span className="task-row-name">{task.name}</span>
                     <span className={`tag ${task.hidden ? 'tag-neutral' : 'tag-accent'}`}>{task.hidden ? 'Скрыто' : 'Видно'}</span>
+                    {task.password && (
+                      <span className="tag tag-neutral tag-with-icon">
+                        <LockIcon />С паролем
+                      </span>
+                    )}
                     {task.categories.map((category) => (
                       <span key={category} className="tag tag-outline">
                         {category}
@@ -93,6 +104,14 @@ export function SubjectPage() {
                   </div>
                   <div className="task-row-href">{task.href || 'ссылка не указана'}</div>
                   {task.comment && <div className="task-row-comment">{task.comment}</div>}
+                  {task.password && (
+                    <div className="task-row-password">
+                      Пароль: <code className="secret">{task.password}</code>
+                      <button type="button" className="btn btn-ghost btn-small" onClick={() => copyPassword(task.password)}>
+                        Скопировать
+                      </button>
+                    </div>
+                  )}
                   <div className={`task-row-status ${status.isError ? 'is-error' : ''}`} title={task.error || undefined}>
                     {status.text}
                   </div>

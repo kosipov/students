@@ -12,6 +12,7 @@ func RegisterHTTPEndpoints(api *gin.RouterGroup, admin *gin.RouterGroup, subject
 
 	api.GET("/catalog", h.Catalog)
 	api.GET("/tasks/:id", h.Task)
+	api.POST("/tasks/:id/unlock", h.UnlockTask)
 
 	admin.GET("/overview", h.Overview)
 

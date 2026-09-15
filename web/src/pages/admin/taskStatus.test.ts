@@ -10,6 +10,7 @@ const base: AdminTask = {
   comment: '',
   hidden: false,
   categories: [],
+  password: '',
   isDocument: true,
   contentUnsupported: false,
   fetchedAt: null,

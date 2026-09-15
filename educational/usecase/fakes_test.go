@@ -18,6 +18,16 @@ const (
 
 var testNow = time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 
+// taskAccess lists unlocked task ids with password versions.
+type taskAccess map[int]int
+
+func (a taskAccess) IsUnlocked(id int, version int) bool {
+	v, ok := a[id]
+	return ok && v == version
+}
+
+var noAccess = taskAccess{}
+
 func timeAgo(d time.Duration) *time.Time {
 	t := testNow.Add(-d)
 	return &t
@@ -270,6 +280,8 @@ func (r *fakeRepo) UpdateSubjectObject(ctx context.Context, subjectObject *model
 	stored.Href = subjectObject.Href
 	stored.Comment = subjectObject.Comment
 	stored.Hidden = subjectObject.Hidden
+	stored.Password = subjectObject.Password
+	stored.PasswordVersion = subjectObject.PasswordVersion
 	stored.Categories = append([]models.SubjectObjectCategory(nil), subjectObject.Categories...)
 	r.subjectObjects[subjectObject.ID] = stored
 	return nil
