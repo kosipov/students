@@ -169,3 +169,75 @@ export interface ScheduleSyncState {
   error: string
   stale: boolean
 }
+
+// Progress: the grade sheet (progress/delivery/http/dto.go).
+
+export type MarkStatus = 'in_progress' | 'submitted' | 'accepted'
+
+export interface ProgressMark {
+  taskId: number
+  status: MarkStatus
+  comment?: string
+  updatedAt: string
+}
+
+export interface ProgressStudent {
+  id: number
+  name: string
+  marks: ProgressMark[]
+}
+
+export interface ProgressTask {
+  id: number
+  name: string
+  hidden: boolean
+}
+
+export interface ProgressSubject {
+  id: number
+  name: string
+  tasks: ProgressTask[]
+}
+
+/** The admin matrix: students as rows, tasks of each subject as columns. */
+export interface AdminProgress {
+  group: { id: number; name: string; hidden: boolean }
+  subjects: ProgressSubject[]
+  students: ProgressStudent[]
+}
+
+/** The public roster: names of the group's students, without marks. */
+export interface Roster {
+  group: Ref
+  students: Ref[]
+}
+
+export interface StudentProgressTask {
+  id: number
+  name: string
+  comment: string
+  /** Empty when the teacher hasn't marked anything yet. */
+  status: MarkStatus | ''
+  markComment?: string
+  updatedAt: string | null
+}
+
+export interface StudentProgressSubject {
+  id: number
+  name: string
+  tasks: StudentProgressTask[]
+}
+
+/** What a student sees on the public progress page. */
+export interface StudentProgress {
+  student: Ref
+  group: Ref
+  subjects: StudentProgressSubject[]
+}
+
+export interface ImportResult {
+  added: number
+  skipped: number
+  /** How many names the source had (the pasted list or the campus roster). */
+  found: number
+}

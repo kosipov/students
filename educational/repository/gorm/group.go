@@ -66,6 +66,15 @@ func (g *GroupRepository) DeleteGroup(ctx context.Context, group *models.Group) 
 				return err
 			}
 		}
+		// The roster and its marks belong to the group.
+		if err := tx.Exec(
+			"DELETE FROM marks WHERE student_id IN (SELECT id FROM students WHERE group_id = ?)", group.ID,
+		).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("group_id = ?", group.ID).Delete(&models.Student{}).Error; err != nil {
+			return err
+		}
 		return tx.Where("id = ?", group.ID).Delete(&models.Group{}).Error
 	})
 }

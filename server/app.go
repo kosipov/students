@@ -27,6 +27,9 @@ import (
 	educationalhttp "github.com/kosipov/students/educational/delivery/http"
 	educationalgorm "github.com/kosipov/students/educational/repository/gorm"
 	educationalusecase "github.com/kosipov/students/educational/usecase"
+	progresshttp "github.com/kosipov/students/progress/delivery/http"
+	progressgorm "github.com/kosipov/students/progress/repository/gorm"
+	progressusecase "github.com/kosipov/students/progress/usecase"
 	schedulehttp "github.com/kosipov/students/schedule/delivery/http"
 	schedulegorm "github.com/kosipov/students/schedule/repository/gorm"
 	scheduleusecase "github.com/kosipov/students/schedule/usecase"
@@ -41,6 +44,7 @@ type App struct {
 	groupUC    educational.CommonGroupUseCase
 	subjectUC  educational.CommonSubjectUseCase
 	scheduleUC *scheduleusecase.UseCase
+	progressUC *progressusecase.UseCase
 	// syncSchedule is off when no teacher is configured.
 	syncSchedule         bool
 	scheduleSyncInterval time.Duration
@@ -59,7 +63,8 @@ func NewApp() *App {
 		// Protects the university's site from a typo like "30s".
 		syncInterval = 30 * time.Minute
 	}
-	scheduleSource := campus.Source{Client: campus.NewClient(teacher, campusClientOptions()...)}
+	campusClient := campus.NewClient(teacher, campusClientOptions()...)
+	scheduleSource := campus.Source{Client: campusClient}
 
 	return &App{
 		scheduleUC:           scheduleusecase.NewUseCase(schedulegorm.NewRepository(db), scheduleSource),
@@ -73,7 +78,8 @@ func NewApp() *App {
 		),
 		groupUC: educationalusecase.NewGroupUseCase(
 			groupRepo),
-		subjectUC: educationalusecase.NewSubjectUseCase(subjectRepo, onedrive.NewClient()),
+		subjectUC:  educationalusecase.NewSubjectUseCase(subjectRepo, onedrive.NewClient()),
+		progressUC: progressusecase.NewUseCase(progressgorm.NewRepository(db), campusClient),
 	}
 }
 
@@ -100,6 +106,7 @@ func (a *App) Run(port string) error {
 	admin := api.Group("/admin", authhttp.NewAuthMiddleware())
 	educationalhttp.RegisterHTTPEndpoints(api, admin, a.subjectUC, a.groupUC)
 	schedulehttp.RegisterHTTPEndpoints(api, admin, a.scheduleUC)
+	progresshttp.RegisterHTTPEndpoints(api, admin, a.progressUC, a.progressUC)
 
 	registerSPA(router, "web/dist")
 
@@ -189,6 +196,8 @@ func InitDB() *gorm.DB {
 		&models.SubjectObjectCategory{},
 		&models.ScheduleLesson{},
 		&models.ScheduleSync{},
+		&models.Student{},
+		&models.Mark{},
 	)
 
 	return client

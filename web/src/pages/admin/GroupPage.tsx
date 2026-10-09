@@ -40,10 +40,15 @@ export function GroupPage() {
           <h1 className="page-title">Предметы {group.name}</h1>
           {group.hidden && <span className="tag tag-neutral">Группа скрыта</span>}
         </div>
-        <button type="button" className="btn btn-primary" onClick={() => setDialog({ kind: 'edit' })}>
-          <PlusIcon />
-          Предмет
-        </button>
+        <div className="rowact">
+          <Link to={`/admin/groups/${group.id}/progress`} className="btn btn-secondary">
+            Успеваемость
+          </Link>
+          <button type="button" className="btn btn-primary" onClick={() => setDialog({ kind: 'edit' })}>
+            <PlusIcon />
+            Предмет
+          </button>
+        </div>
       </div>
 
       {subjects.length === 0 ? (

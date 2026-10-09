@@ -63,6 +63,12 @@ export function StudentLayout() {
       <Header search={{ value: query, onChange: setQuery }} />
 
       <nav className="mobnav" aria-label="Группы">
+        <Link
+          to="/progress"
+          className={`btn ${location.pathname.startsWith('/progress') ? 'btn-primary' : 'btn-secondary'}`}
+        >
+          Отметки
+        </Link>
         {groups.map((group) => (
           <Link
             key={group.id}
@@ -104,6 +110,18 @@ export function StudentLayout() {
                 </span>
               </Link>
             ))}
+          </nav>
+
+          <nav aria-label="Успеваемость">
+            <div className="sidebar-divider" />
+            <div className="sidebar-label">Успеваемость</div>
+            <Link
+              to="/progress"
+              className={`navitem si ${location.pathname.startsWith('/progress') ? 'is-active' : ''}`}
+              aria-current={location.pathname.startsWith('/progress') ? 'page' : undefined}
+            >
+              <span className="navitem-title">Мои отметки</span>
+            </Link>
           </nav>
 
           {activeGroup && activeGroup.subjects.length > 0 && (

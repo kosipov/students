@@ -4,14 +4,19 @@ import type {
   AdminGroup,
   AdminGroupDetails,
   AdminGroupsResponse,
+  AdminProgress,
   AdminSubject,
   AdminSubjectDetails,
   AdminTask,
   Catalog,
   GroupInput,
+  ImportResult,
+  MarkStatus,
   Overview,
   Presence,
+  Roster,
   ScheduleSyncState,
+  StudentProgress,
   SubjectInput,
   Task,
   TaskInput,
@@ -31,6 +36,9 @@ export const queryKeys = {
   categories: ['admin', 'categories'] as const,
   presence: ['presence'] as const,
   scheduleSync: ['admin', 'schedule'] as const,
+  progress: (groupId: number) => ['admin', 'progress', groupId] as const,
+  roster: (groupId: number) => ['roster', groupId] as const,
+  studentProgress: (studentId: number) => ['studentProgress', studentId] as const,
 }
 
 // Student
@@ -235,5 +243,85 @@ export function useRefreshTask() {
   return useMutation({
     mutationFn: (id: number) => api.post<AdminTask>(`/admin/tasks/${id}/refresh`),
     onSuccess: invalidate,
+  })
+}
+
+// Progress
+
+/** The grade sheet of a group: roster, subjects with tasks, and every mark. */
+export function useAdminProgress(groupId: number) {
+  return useQuery({
+    queryKey: queryKeys.progress(groupId),
+    queryFn: () => api.get<AdminProgress>(`/admin/groups/${groupId}/progress`),
+  })
+}
+
+/** Progress mutations change only the sheet of this group. */
+function useInvalidateProgress(groupId: number) {
+  const queryClient = useQueryClient()
+  return () => queryClient.invalidateQueries({ queryKey: queryKeys.progress(groupId) })
+}
+
+export function useAddStudent(groupId: number) {
+  const invalidate = useInvalidateProgress(groupId)
+  return useMutation({
+    mutationFn: (name: string) => api.post(`/admin/groups/${groupId}/students`, { name }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useImportStudents(groupId: number) {
+  const invalidate = useInvalidateProgress(groupId)
+  return useMutation({
+    mutationFn: (names: string) => api.post<ImportResult>(`/admin/groups/${groupId}/students/import`, { names }),
+    onSuccess: invalidate,
+  })
+}
+
+/** Loads the roster from the university's campus site by the group's name. */
+export function useImportFromCampus(groupId: number) {
+  const invalidate = useInvalidateProgress(groupId)
+  return useMutation({
+    mutationFn: () => api.post<ImportResult>(`/admin/groups/${groupId}/students/import-campus`),
+    onSuccess: invalidate,
+  })
+}
+
+export function useRenameStudent(groupId: number) {
+  const invalidate = useInvalidateProgress(groupId)
+  return useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => api.patch(`/admin/students/${id}`, { name }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteStudent(groupId: number) {
+  const invalidate = useInvalidateProgress(groupId)
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/admin/students/${id}`),
+    onSuccess: invalidate,
+  })
+}
+
+/** Sets the mark; an empty status removes it. */
+export function useSetMark(groupId: number) {
+  const invalidate = useInvalidateProgress(groupId)
+  return useMutation({
+    mutationFn: ({ studentId, taskId, status }: { studentId: number; taskId: number; status: MarkStatus | '' }) =>
+      api.put(`/admin/students/${studentId}/marks/${taskId}`, { status }),
+    onSuccess: invalidate,
+  })
+}
+
+/** The public roster of a group: names only. */
+export function useRoster(groupId: number) {
+  return useQuery({ queryKey: queryKeys.roster(groupId), queryFn: () => api.get<Roster>(`/groups/${groupId}/students`) })
+}
+
+/** The public progress of one student. */
+export function useStudentProgress(studentId: number) {
+  return useQuery({
+    queryKey: queryKeys.studentProgress(studentId),
+    queryFn: () => api.get<StudentProgress>(`/students/${studentId}/progress`),
   })
 }

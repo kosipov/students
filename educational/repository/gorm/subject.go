@@ -124,6 +124,9 @@ func (subjectRepo *SubjectRepository) DeleteSubjectObject(ctx context.Context, s
 		if err := tx.Where("subject_object_id = ?", subjectObject.ID).Delete(&models.SubjectObjectCategory{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("subject_object_id = ?", subjectObject.ID).Delete(&models.Mark{}).Error; err != nil {
+			return err
+		}
 		return tx.Where("id = ?", subjectObject.ID).Delete(&models.SubjectObject{}).Error
 	})
 }
@@ -157,6 +160,9 @@ func deleteSubjectObjectsOfSubjects(tx *gorm.DB, subjectIds []int) error {
 	}
 	if len(subjectObjectIds) > 0 {
 		if err := tx.Where("subject_object_id IN (?)", subjectObjectIds).Delete(&models.SubjectObjectCategory{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("subject_object_id IN (?)", subjectObjectIds).Delete(&models.Mark{}).Error; err != nil {
 			return err
 		}
 	}

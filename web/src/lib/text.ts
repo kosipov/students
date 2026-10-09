@@ -11,6 +11,7 @@ export function plural(count: number, forms: readonly [one: string, few: string,
 export const TASK_FORMS = ['задание', 'задания', 'заданий'] as const
 export const SUBJECT_FORMS = ['предмет', 'предмета', 'предметов'] as const
 export const GROUP_FORMS = ['группа', 'группы', 'групп'] as const
+export const STUDENT_FORMS = ['студент', 'студента', 'студентов'] as const
 
 export function countLabel(count: number, forms: readonly [string, string, string]): string {
   return `${count} ${plural(count, forms)}`

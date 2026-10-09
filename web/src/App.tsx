@@ -4,10 +4,12 @@ import { StudentLayout } from './layouts/StudentLayout'
 import { GroupPage } from './pages/admin/GroupPage'
 import { GroupsPage } from './pages/admin/GroupsPage'
 import { OverviewPage } from './pages/admin/OverviewPage'
+import { ProgressPage } from './pages/admin/ProgressPage'
 import { SubjectPage as AdminSubjectPage } from './pages/admin/SubjectPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFound } from './components/PageState'
 import { HomePage } from './pages/student/HomePage'
+import { ProgressGroupsPage, ProgressRosterPage, StudentProgressPage } from './pages/student/ProgressPages'
 import { SubjectPage } from './pages/student/SubjectPage'
 import { TaskPage, TaskPreviewPage } from './pages/student/TaskPage'
 
@@ -19,6 +21,9 @@ export function App() {
         <Route path="groups/:groupId" element={<HomePage />} />
         <Route path="groups/:groupId/subjects/:subjectId" element={<SubjectPage />} />
         <Route path="tasks/:taskId" element={<TaskPage />} />
+        <Route path="progress" element={<ProgressGroupsPage />} />
+        <Route path="progress/groups/:groupId" element={<ProgressRosterPage />} />
+        <Route path="progress/students/:studentId" element={<StudentProgressPage />} />
         <Route
           path="admin/tasks/:taskId/preview"
           element={
@@ -38,6 +43,7 @@ export function App() {
         <Route index element={<OverviewPage />} />
         <Route path="groups" element={<GroupsPage />} />
         <Route path="groups/:groupId" element={<GroupPage />} />
+        <Route path="groups/:groupId/progress" element={<ProgressPage />} />
         <Route path="subjects/:subjectId" element={<AdminSubjectPage />} />
         <Route path="*" element={<NotFound backTo="/admin" backLabel="← В управление" />} />
       </Route>
