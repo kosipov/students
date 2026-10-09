@@ -1,14 +1,18 @@
-"""Yandex Cloud Function that fetches the university's schedule page for the site.
+"""Yandex Cloud Function that fetches campus.syktsu.ru pages for the site.
 
 The university doesn't answer requests from the site's server, so the site asks this function instead:
 it runs in Yandex Cloud, requests campus.syktsu.ru from a Russian address and returns the page as is.
 
-It is not an open proxy: it only posts the given form to the single address in CAMPUS_URL,
-and only for callers that know RELAY_SECRET.
+It is not an open proxy: it only posts the given form to the two addresses the site needs —
+the teacher schedule and the group roster — and only for callers that know RELAY_SECRET.
 
 Environment variables of the function:
-  RELAY_SECRET - the same value as CAMPUS_RELAY_SECRET of the site; required.
-  CAMPUS_URL   - the schedule page; defaults to the teacher schedule of campus.syktsu.ru.
+  RELAY_SECRET         - the same value as CAMPUS_RELAY_SECRET of the site; required.
+  CAMPUS_URL           - the schedule page; defaults to the teacher schedule of campus.syktsu.ru.
+  CAMPUS_STUDENTS_URL  - the group roster form; defaults to get_student.php of campus.syktsu.ru.
+
+The caller picks the address with the X-Relay-Target header: "students" for the roster,
+anything else (or none) for the schedule.
 """
 
 import base64
@@ -18,6 +22,9 @@ import urllib.error
 import urllib.request
 
 CAMPUS_URL = os.environ.get("CAMPUS_URL", "https://campus.syktsu.ru/schedule/teacher/")
+CAMPUS_STUDENTS_URL = os.environ.get(
+    "CAMPUS_STUDENTS_URL", "https://campus.syktsu.ru/php_files/get_student.php"
+)
 RELAY_SECRET = os.environ.get("RELAY_SECRET", "")
 # A regular desktop browser's, so requests don't point to the site that makes them.
 USER_AGENT = (
@@ -27,6 +34,12 @@ USER_AGENT = (
 CAMPUS_TIMEOUT = 20
 MAX_REQUEST_BODY = 64 * 1024
 MAX_PAGE = 4 * 1024 * 1024
+
+# The only addresses the function will ever post to.
+TARGETS = {
+    "schedule": CAMPUS_URL,
+    "students": CAMPUS_STUDENTS_URL,
+}
 
 
 def handler(event, context):
@@ -43,8 +56,9 @@ def handler(event, context):
     if len(body) > MAX_REQUEST_BODY:
         return _text(413, "Request is too large")
 
+    target_url = TARGETS.get(headers.get("x-relay-target", "schedule"), CAMPUS_URL)
     request = urllib.request.Request(
-        CAMPUS_URL,
+        target_url,
         data=body.encode("utf-8"),
         headers={
             "Content-Type": "application/x-www-form-urlencoded",

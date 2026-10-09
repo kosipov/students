@@ -1,5 +1,5 @@
-// Package campus reads a teacher's schedule from campus.syktsu.ru. The site has no API, so the client
-// submits the same forms as the schedule page in a browser and parses the HTML.
+// Package campus reads a teacher's schedule and group rosters from campus.syktsu.ru. The site has
+// no API, so the client submits the same forms as the site's pages in a browser and parses the answers.
 package campus
 
 import (
@@ -26,6 +26,7 @@ const (
 type Client struct {
 	httpClient  *http.Client
 	scheduleURL string
+	studentsURL string
 	teacher     string
 	pause       time.Duration
 	// headers are sent with every request, e.g. the secret of the relay.
@@ -39,12 +40,18 @@ func WithScheduleURL(scheduleURL string) Option {
 	return func(c *Client) { c.scheduleURL = scheduleURL }
 }
 
-// WithRelay asks the schedule page through a relay (a Yandex Cloud function) instead of asking
+// WithStudentsURL overrides the students form address, e.g. with a test server.
+func WithStudentsURL(studentsURL string) Option {
+	return func(c *Client) { c.studentsURL = studentsURL }
+}
+
+// WithRelay asks the campus pages through a relay (a Yandex Cloud function) instead of asking
 // the university directly: the relay runs where the site answers and forwards the same form.
 // The secret keeps strangers from using the relay's public address.
 func WithRelay(relayURL string, secret string) Option {
 	return func(c *Client) {
 		c.scheduleURL = relayURL
+		c.studentsURL = relayURL
 		c.headers["X-Relay-Secret"] = secret
 	}
 }
@@ -85,6 +92,7 @@ func NewClient(teacher string, opts ...Option) *Client {
 	c := &Client{
 		httpClient:  &http.Client{Timeout: requestTimeout},
 		scheduleURL: DefaultScheduleURL,
+		studentsURL: DefaultStudentsURL,
 		teacher:     teacher,
 		pause:       requestPause,
 		headers:     map[string]string{},
