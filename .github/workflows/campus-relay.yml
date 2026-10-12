@@ -1,0 +1,38 @@
+name: campus-relay image
+
+# Собирает образ релея кампуса и пушит его в GitHub Container Registry.
+# Образ используется приложением в Cloud.ru Evolution Container Apps (см. DEPLOY.md).
+on:
+  push:
+    branches: [main]
+    paths:
+      - deploy/campus-relay/**
+      - .github/workflows/campus-relay.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/campus-relay/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/kosipov/campus-relay:latest
+            ghcr.io/kosipov/campus-relay:${{ github.sha }}
