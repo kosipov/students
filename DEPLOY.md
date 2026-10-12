@@ -177,9 +177,9 @@ CAMPUS_RELAY_SECRET=то же значение, что RELAY_SECRET
 - Сменить секрет — поменять его в двух местах: в переменных функции и в переменных Dokploy.
 - Если функция перестанет работать, сайт продолжит показывать последнее известное расписание, а ошибка будет видна в «Обзоре».
 
-**Альтернатива — контейнер на Cloud.ru Evolution.** Когда Yandex Cloud Functions недоступен, тот же релей работает как крошечный контейнер: [`deploy/campus-relay/main.go`](deploy/campus-relay/main.go) + [`Dockerfile`](deploy/campus-relay/Dockerfile) (образ ~10 МБ). Evolution открыт физлицам (регистрация на console.cloud.ru, в т.ч. по Сбер ID), а Container Apps имеет бесплатный месячный лимит — 50 ГБ·ч RAM и 25 vCPU·ч; релей тратит ~100 вызовов в день по паре секунд, это несколько процентов лимита.
+**Альтернатива — контейнер на Cloud.ru Evolution.** Когда Yandex Cloud Functions недоступен, тот же релей работает как крошечный контейнер: [`deploy/campus-relay/main.go`](deploy/campus-relay/main.go) + [`Dockerfile`](deploy/campus-relay/Dockerfile) (образ ~10 МБ). Evolution открыт физлицам (регистрация на console.cloud.ru, в т.ч. по Сбер ID), а Container Apps имеет бесплатный месячный лимит; релей тратит ~100 вызовов в день по паре секунд, это несколько процентов лимита.
 
-1. Образ собирается GitHub Actions ([`.github/workflows/campus-relay.yml`](.github/workflows/campus-relay.yml)) и лежит в GitHub Container Registry: `ghcr.io/kosipov/campus-relay:latest`. После первой сборки откройте пакет на GitHub (github.com/kosipov → Packages → campus-relay) и в настройках пакета сделайте его **public** — тогда Cloud.ru сможет тянуть образ без авторизации.
+1. Образ собирается GitHub Actions ([`.github/workflows/campus-relay.yml`](.github/workflows/campus-relay.yml)) и пушится сразу в два реестра: `ghcr.io/kosipov/campus-relay` (источник правды, пакет должен быть public) и в **Evolution Artifact Registry** — Container Apps умеет тянуть образы только оттуда. Для пуша в Cloud.ru в секретах репозитория (Settings → Secrets and variables → Actions) должны быть `CLOUDRU_REGISTRY` (URI вида `<имя>.cr.cloud.ru`), `CLOUDRU_KEY_ID` и `CLOUDRU_KEY_SECRET` (ключ сервисного аккаунта). Реестр создаётся в консоли: формат Docker, тариф «Базовый» — хранение нашего образа стоит копейки в месяц.
 
    Локальная сборка вручную, если нужно проверить изменения до пуша:
 
@@ -187,7 +187,7 @@ CAMPUS_RELAY_SECRET=то же значение, что RELAY_SECRET
    docker build -f deploy/campus-relay/Dockerfile -t campus-relay .
    ```
 
-2. Создайте приложение в **Evolution Container Apps** из образа `ghcr.io/kosipov/campus-relay:latest`: порт `8080`, переменная окружения `RELAY_SECRET` (та же, что `CAMPUS_RELAY_SECRET` у сайта), минимальное число экземпляров — **0** (scale-to-zero, иначе контейнер сожжёт бесплатные vCPU·ч в простое), публичный доступ включён. После обновления образа в ghcr пересоздайте ревизию приложения (restart), чтобы подтянуться свежий `latest`.
+2. Создайте приложение в **Evolution Container Apps** из образа `<имя>.cr.cloud.ru/campus-relay:latest`: порт `8080`, переменная окружения `RELAY_SECRET` (та же, что `CAMPUS_RELAY_SECRET` у сайта), минимальное число экземпляров — **0** (scale-to-zero, иначе контейнер сожжёт бесплатные vCPU·ч в простое), публичный доступ включён. После обновления образа в реестре пересоздайте ревизию приложения (restart), чтобы подтянулся свежий `latest`.
 3. Скопируйте публичный URL приложения в `CAMPUS_RELAY_URL` сайта (в ansible — переменная `campus_relay_url`) и передеплойте.
 4. Проверка: `curl -X POST -H 'X-Relay-Secret: …' --data-urlencode 'name=Фамилия И. О.' <URL>/` должен вернуть страницу расписания.
 
