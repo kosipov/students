@@ -243,9 +243,10 @@ a.panel-row:hover { color: inherit; background: var(--color-accent-100); }
 .table .cell-title a { color: inherit; }
 .table .cell-title a:hover { color: var(--color-accent-700); }
 .rowact { display: flex; gap: var(--space-2); justify-content: flex-end; }
-/* Actions appear on hover only where hover exists; on touch screens they are always visible. */
+/* Actions appear on hover only where hover exists; on touch screens they are always visible.
+   Scoped to table rows: .rowact in page headers must stay visible. */
 @media (hover: hover) {
-  .rowact { opacity: 0; transition: opacity .2s ease; }
+  tr .rowact { opacity: 0; transition: opacity .2s ease; }
   tr:hover .rowact, tr:focus-within .rowact { opacity: 1; }
 }
 
