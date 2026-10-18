@@ -11,7 +11,8 @@ campus:
   # How often the schedule is copied from campus.syktsu.ru.
   sync_interval: 6h
   # Which relay forwards requests to campus.syktsu.ru: "yandex" (the function in Yandex Cloud)
-  # or "cloudru" (the container in Cloud.ru Evolution). The chosen relay's address comes from
-  # the CAMPUS_RELAY_URL_YANDEX / CAMPUS_RELAY_URL_CLOUDRU env variable; CAMPUS_RELAY_URL,
-  # when set, overrides the choice with an explicit address.
+  # or "cloudru" (the container in Cloud.ru Evolution). The env variable CAMPUS_RELAY_PROVIDER
+  # wins over this setting, so the relay can be switched without a redeploy. The chosen relay's
+  # address comes from the CAMPUS_RELAY_URL_YANDEX / CAMPUS_RELAY_URL_CLOUDRU env variable;
+  # CAMPUS_RELAY_URL, when set, overrides the choice with an explicit address.
   relay: yandex

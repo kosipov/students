@@ -63,8 +63,9 @@
 - Деплой = пуш в `main`, затем `ansible-playbook playbooks/site.yml --tags student`
   из серверного репозитория (пример роли — `deploy/ansible/`). Образ релея
   собирает GitHub Actions при изменении `deploy/campus-relay/**`.
-  Какой релей активен, решает `campus.relay` в `config.yml` (`yandex` по
-  умолчанию, `cloudru` — запасной); адреса — в env `CAMPUS_RELAY_URL_<ПРОВАЙДЕР>`.
+  Какой релей активен, решает `CAMPUS_RELAY_PROVIDER` в `.env` (без редеплоя),
+  запасное значение — `campus.relay` в `config.yml` (`yandex` по умолчанию);
+  адреса — в env `CAMPUS_RELAY_URL_<ПРОВАЙДЕР>`.
 - Секреты только через env (`MYSQL_*`, `CAMPUS_RELAY_*`); в репозитории их нет
   и быть не должно. `config/config.yml` в образе менять нельзя после создания
   пользователей (соль паролей).

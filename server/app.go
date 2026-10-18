@@ -152,8 +152,9 @@ func (a *App) Run(port string) error {
 }
 
 // campusClientOptions reads how to reach the university's site when it doesn't answer the server's address:
-// through a relay or a proxy (CAMPUS_PROXY_URL). The relay is chosen by campus.relay in config.yml
-// ("yandex" by default, or "cloudru"); its address comes from CAMPUS_RELAY_URL_<PROVIDER>.
+// through a relay or a proxy (CAMPUS_PROXY_URL). The relay provider comes from CAMPUS_RELAY_PROVIDER
+// ("yandex" or "cloudru"), which wins over campus.relay in config.yml; the default is "yandex".
+// The chosen provider's address comes from CAMPUS_RELAY_URL_<PROVIDER>.
 // CAMPUS_RELAY_URL, when set, is an explicit override for a relay at any other address.
 // Env variables, not config.yml, hold the addresses and the secret, because the secret is among them.
 func campusClientOptions() []campus.Option {
@@ -161,14 +162,17 @@ func campusClientOptions() []campus.Option {
 
 	relayURL := os.Getenv("CAMPUS_RELAY_URL")
 	if relayURL == "" {
-		provider := viper.GetString("campus.relay")
+		provider := os.Getenv("CAMPUS_RELAY_PROVIDER")
+		if provider == "" {
+			provider = viper.GetString("campus.relay")
+		}
 		if provider == "" {
 			provider = "yandex"
 		}
 		envName := "CAMPUS_RELAY_URL_" + strings.ToUpper(provider)
 		relayURL = os.Getenv(envName)
 		if relayURL == "" {
-			log.Printf("Campus relay %q is chosen in config.yml, but %s is empty: the campus will be asked directly", provider, envName)
+			log.Printf("Campus relay %q is chosen, but %s is empty: the campus will be asked directly", provider, envName)
 		}
 	}
 
