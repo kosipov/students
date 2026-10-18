@@ -26,7 +26,7 @@ type fakeSource struct {
 	lessons []campus.RoomLesson
 }
 
-func (s *fakeSource) FetchRoomWeek(_ context.Context, room string) (*campus.RoomWeek, error) {
+func (s *fakeSource) FetchRoomWeek(_ context.Context, room string, _ time.Time) (*campus.RoomWeek, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.calls = append(s.calls, room)
@@ -56,7 +56,7 @@ func TestOccupancy(t *testing.T) {
 	}}
 	u := newTestUseCase(source)
 
-	occupancy, err := u.Occupancy(context.Background(), 2, 3)
+	occupancy, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 3)
 	if err != nil {
 		t.Fatalf("Occupancy() error = %v", err)
 	}
@@ -82,7 +82,7 @@ func TestOccupancy(t *testing.T) {
 	}
 
 	// The same query again is answered from the cache: the campus is not asked twice.
-	if _, err := u.Occupancy(context.Background(), 2, 3); err != nil {
+	if _, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 3); err != nil {
 		t.Fatalf("second Occupancy() error = %v", err)
 	}
 	if source.callCount() != 7 {
@@ -97,7 +97,7 @@ func TestOccupancyFreeRoom(t *testing.T) {
 	}}
 	u := newTestUseCase(source)
 
-	occupancy, err := u.Occupancy(context.Background(), 5, 3)
+	occupancy, err := u.Occupancy(context.Background(), 5, msk("16.10.2026", "00:00"), 3)
 	if err != nil {
 		t.Fatalf("Occupancy() error = %v", err)
 	}
@@ -115,7 +115,7 @@ func TestOccupancyAllFloors(t *testing.T) {
 	source := &fakeSource{}
 	u := newTestUseCase(source)
 
-	occupancy, err := u.Occupancy(context.Background(), 0, 1)
+	occupancy, err := u.Occupancy(context.Background(), 0, msk("16.10.2026", "00:00"), 1)
 	if err != nil {
 		t.Fatalf("Occupancy() error = %v", err)
 	}
@@ -129,12 +129,12 @@ func TestOccupancyCacheExpires(t *testing.T) {
 	u := newTestUseCase(source)
 	u.ttl = time.Hour
 
-	if _, err := u.Occupancy(context.Background(), 2, 3); err != nil {
+	if _, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 3); err != nil {
 		t.Fatalf("Occupancy() error = %v", err)
 	}
 	// Fifty minutes later the cache is still fresh.
 	u.now = func() time.Time { return msk("16.10.2026", "13:40") }
-	if _, err := u.Occupancy(context.Background(), 2, 3); err != nil {
+	if _, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 3); err != nil {
 		t.Fatalf("Occupancy() error = %v", err)
 	}
 	if source.callCount() != 7 {
@@ -143,7 +143,7 @@ func TestOccupancyCacheExpires(t *testing.T) {
 
 	// Two hours after the fetch the cache is outdated: the campus is asked again.
 	u.now = func() time.Time { return msk("16.10.2026", "15:00") }
-	if _, err := u.Occupancy(context.Background(), 2, 4); err != nil {
+	if _, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 4); err != nil {
 		t.Fatalf("Occupancy() error = %v", err)
 	}
 	if source.callCount() != 14 {
@@ -158,14 +158,14 @@ func TestOccupancyStaleOnCampusError(t *testing.T) {
 	u := newTestUseCase(source)
 	u.ttl = time.Hour
 
-	if _, err := u.Occupancy(context.Background(), 2, 3); err != nil {
+	if _, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 3); err != nil {
 		t.Fatalf("Occupancy() error = %v", err)
 	}
 
 	// The cache expired and the campus doesn't answer: the outdated copy is shown, marked stale.
 	source.err = errors.New("campus is down")
 	u.now = func() time.Time { return msk("16.10.2026", "15:00") }
-	occupancy, err := u.Occupancy(context.Background(), 2, 4)
+	occupancy, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 4)
 	if err != nil {
 		t.Fatalf("Occupancy() error = %v", err)
 	}
@@ -180,7 +180,7 @@ func TestOccupancyFailedWithoutCache(t *testing.T) {
 	source := &fakeSource{err: errors.New("campus is down")}
 	u := newTestUseCase(source)
 
-	occupancy, err := u.Occupancy(context.Background(), 2, 3)
+	occupancy, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 3)
 	if err != nil {
 		t.Fatalf("Occupancy() error = %v: one room's failure must not fail the others", err)
 	}
@@ -194,7 +194,7 @@ func TestOccupancyFailedWithoutCache(t *testing.T) {
 func TestOccupancyRejectsUnknownPair(t *testing.T) {
 	u := newTestUseCase(&fakeSource{})
 	for _, pair := range []int{0, 9, -1} {
-		if _, err := u.Occupancy(context.Background(), 2, pair); !errors.Is(err, ErrUnknownPair) {
+		if _, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), pair); !errors.Is(err, ErrUnknownPair) {
 			t.Errorf("Occupancy(pair %d) error = %v, want ErrUnknownPair", pair, err)
 		}
 	}
@@ -226,5 +226,60 @@ func TestWeekStart(t *testing.T) {
 	}
 	if got := weekStart(msk("12.10.2026", "15:00")); !got.Equal(msk("12.10.2026", "00:00")) {
 		t.Errorf("weekStart(Monday) = %v, want the same Monday", got)
+	}
+}
+
+func TestOccupancyRejectsOutOfReachDate(t *testing.T) {
+	u := newTestUseCase(&fakeSource{})
+
+	// "Now" in the tests is Friday 16.10.2026: the current week started on Monday 12.10.
+	for _, day := range []string{"11.10.2026", "16.11.2026"} {
+		if _, err := u.Occupancy(context.Background(), 2, msk(day, "00:00"), 3); !errors.Is(err, ErrDateOutOfRange) {
+			t.Errorf("Occupancy(%s) error = %v, want ErrDateOutOfRange", day, err)
+		}
+	}
+	// The previous days of the current week and three weeks ahead are fine.
+	for _, day := range []string{"12.10.2026", "19.10.2026", "01.11.2026"} {
+		if _, err := u.Occupancy(context.Background(), 2, msk(day, "00:00"), 3); err != nil {
+			t.Errorf("Occupancy(%s) error = %v, want nil", day, err)
+		}
+	}
+}
+
+func TestRefreshRoom(t *testing.T) {
+	source := &fakeSource{}
+	u := newTestUseCase(source)
+
+	// The first query fills the cache of all seven rooms of the floor.
+	if _, err := u.Occupancy(context.Background(), 2, msk("16.10.2026", "00:00"), 3); err != nil {
+		t.Fatalf("Occupancy() error = %v", err)
+	}
+
+	status, err := u.RefreshRoom(context.Background(), "245/1", msk("16.10.2026", "00:00"), 3)
+	if err != nil {
+		t.Fatalf("RefreshRoom() error = %v", err)
+	}
+	if status.Room.Name != "245/1" || status.Failed || status.Stale {
+		t.Errorf("status = %+v, want a fresh 245/1", status)
+	}
+	if got := source.callCount(); got != 8 {
+		t.Errorf("campus calls = %d, want 8: seven rooms and the refreshed one", got)
+	}
+	if source.calls[len(source.calls)-1] != "245/1" {
+		t.Errorf("last call = %s, want 245/1", source.calls[len(source.calls)-1])
+	}
+}
+
+func TestRefreshRoomRejectsUnknown(t *testing.T) {
+	u := newTestUseCase(&fakeSource{})
+
+	if _, err := u.RefreshRoom(context.Background(), "999/9", msk("16.10.2026", "00:00"), 3); !errors.Is(err, ErrUnknownRoom) {
+		t.Errorf("RefreshRoom() error = %v, want ErrUnknownRoom", err)
+	}
+	if _, err := u.RefreshRoom(context.Background(), "245/1", msk("16.11.2026", "00:00"), 3); !errors.Is(err, ErrDateOutOfRange) {
+		t.Errorf("RefreshRoom() error = %v, want ErrDateOutOfRange", err)
+	}
+	if _, err := u.RefreshRoom(context.Background(), "245/1", msk("16.10.2026", "00:00"), 9); !errors.Is(err, ErrUnknownPair) {
+		t.Errorf("RefreshRoom() error = %v, want ErrUnknownPair", err)
 	}
 }

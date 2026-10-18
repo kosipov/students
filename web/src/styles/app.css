@@ -382,6 +382,7 @@ button.mark:hover { border-color: var(--color-accent); }
 .tag-info { background: #e3edfb; color: #1d4fa1; }
 .tag-busy { background: #fbe3e3; color: #a11d1d; }
 .tag-free { background: #e3f5e9; color: #1d7a3a; }
+.labs-date { width: auto; }
 .kicker-link { color: inherit; text-decoration: none; }
 .kicker-link:hover { color: var(--color-accent-700); }
 

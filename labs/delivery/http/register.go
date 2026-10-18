@@ -10,4 +10,5 @@ func RegisterHTTPEndpoints(admin *gin.RouterGroup, useCase *labs.UseCase) {
 	h := &Handler{useCase: useCase}
 
 	admin.GET("/labs", h.Occupancy)
+	admin.POST("/labs/refresh", h.RefreshRoom)
 }

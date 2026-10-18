@@ -1,9 +1,13 @@
 import { useState } from 'react'
-import { useLabsOccupancy } from '../../api/queries'
-import type { LabsFloor, LabRoom } from '../../api/types'
+import { useQueryClient } from '@tanstack/react-query'
+import { ApiError } from '../../api/client'
+import { labsOccupancyKey, useLabsOccupancy, useRefreshLabRoom } from '../../api/queries'
+import type { LabsFloor, LabsOccupancy, LabRoom } from '../../api/types'
 import { Corners } from '../../components/Corners'
 import { Loading, QueryError } from '../../components/PageState'
+import { useToast } from '../../components/Toast'
 import { useDocumentTitle } from '../../lib/hooks'
+import { campusDateRange, mskToday } from '../../lib/labs'
 import { formatLessonTime, formatSyncTime, lessonKind } from '../../lib/presence'
 
 const FLOORS: { key: LabsFloor; label: string }[] = [
@@ -20,7 +24,7 @@ function roomNumber(room: string): string {
   return room.split('/')[0] ?? room
 }
 
-function RoomRow({ room }: { room: LabRoom }) {
+function RoomRow({ room, onRefresh, refreshing }: { room: LabRoom; onRefresh: (room: string) => void; refreshing: boolean }) {
   const lesson = room.lesson
   return (
     <div className="panel-row">
@@ -48,9 +52,12 @@ function RoomRow({ room }: { room: LabRoom }) {
             </span>
           </>
         )}
-        {room.failed && <span className="panel-row-problem">Кампус не ответил — попробуйте позже</span>}
+        {room.failed && <span className="panel-row-problem">Кампус не ответил — попробуйте запросить ещё раз</span>}
         {room.stale && !room.failed && <span className="panel-row-problem">Кампус не ответил — показаны данные, которые могли устареть</span>}
       </span>
+      <button type="button" className="btn btn-secondary" onClick={() => onRefresh(room.room)} disabled={refreshing}>
+        {refreshing ? 'Запрашиваем…' : 'Запросить с кампуса'}
+      </button>
     </div>
   )
 }
@@ -58,11 +65,42 @@ function RoomRow({ room }: { room: LabRoom }) {
 export function LabsPage() {
   useDocumentTitle('Лаборатории')
   const [floor, setFloor] = useState<LabsFloor | null>(null)
+  const [date, setDate] = useState(mskToday())
   const [pair, setPair] = useState<string | null>(null)
-  const occupancy = useLabsOccupancy(floor, pair)
+  const occupancy = useLabsOccupancy(floor, date, pair)
+
+  const queryClient = useQueryClient()
+  const refresh = useRefreshLabRoom()
+  const toast = useToast()
 
   const floorLabel = FLOORS.find((f) => f.key === floor)?.label ?? ''
   const data = occupancy.data
+  const isToday = date === mskToday()
+  const range = campusDateRange()
+
+  const changeDate = (next: string) => {
+    setDate(next)
+    // "Сейчас" makes sense only for today; for another day the pair must be picked.
+    if (next !== mskToday()) {
+      setPair((current) => (current === 'now' ? null : current))
+    }
+  }
+
+  const refreshRoom = (room: string) => {
+    if (!data) return
+    refresh.mutate(
+      { room, date, pair: data.pair },
+      {
+        onSuccess: (updated) => {
+          queryClient.setQueryData<LabsOccupancy>(labsOccupancyKey(floor, date, pair), (old) =>
+            old ? { ...old, rooms: old.rooms.map((r) => (r.room === updated.room ? updated : r)) } : old,
+          )
+          toast(updated.failed ? `${roomNumber(room)}: кампус не ответил` : `${roomNumber(room)} обновлена с кампуса`)
+        },
+        onError: (error) => toast(error instanceof ApiError ? error.message : 'Не удалось обновить'),
+      },
+    )
+  }
 
   return (
     <div>
@@ -86,17 +124,41 @@ export function LabsPage() {
       </section>
 
       {floor !== null && (
+        <section className="blueprint panel ri delay-1" aria-labelledby="labs-date-title">
+          <Corners />
+          <h3 id="labs-date-title">Дата</h3>
+          <div className="chips">
+            <button type="button" className={`btn ${isToday ? 'btn-primary' : 'btn-secondary'}`} onClick={() => changeDate(mskToday())}>
+              Сегодня
+            </button>
+            <input
+              type="date"
+              className="input labs-date"
+              aria-label="Дата"
+              value={date}
+              min={range.min}
+              max={range.max}
+              onChange={(event) => changeDate(event.target.value)}
+            />
+          </div>
+          <p className="muted">Кампус показывает текущую неделю и три следующие</p>
+        </section>
+      )}
+
+      {floor !== null && (
         <section className="blueprint panel ri delay-1" aria-labelledby="labs-pair-title">
           <Corners />
           <h3 id="labs-pair-title">Пара</h3>
           <div className="chips">
-            <button
-              type="button"
-              className={`btn ${pair === 'now' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setPair('now')}
-            >
-              Сейчас
-            </button>
+            {isToday && (
+              <button
+                type="button"
+                className={`btn ${pair === 'now' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setPair('now')}
+              >
+                Сейчас
+              </button>
+            )}
             {PAIR_TIMES.map((time, index) => (
               <button
                 key={time}
@@ -124,11 +186,11 @@ export function LabsPage() {
               <p className="muted">
                 {floorLabel} · {data.pair}-я пара, {formatLessonTime(data.startsAt)}–{formatLessonTime(data.endsAt)}
                 {' · '}
-                {new Date(data.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' })}
+                {new Date(data.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short', timeZone: 'Europe/Moscow' })}
               </p>
               <div>
                 {data.rooms.map((room) => (
-                  <RoomRow key={room.room} room={room} />
+                  <RoomRow key={room.room} room={room} onRefresh={refreshRoom} refreshing={refresh.isPending && refresh.variables?.room === room.room} />
                 ))}
               </div>
               <p className="muted">

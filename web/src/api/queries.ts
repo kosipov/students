@@ -11,6 +11,7 @@ import type {
   Catalog,
   GroupInput,
   ImportResult,
+  LabRoom,
   LabsFloor,
   LabsOccupancy,
   MarkStatus,
@@ -145,14 +146,24 @@ export function useScheduleSync() {
   return useQuery({ queryKey: queryKeys.scheduleSync, queryFn: () => api.get<ScheduleSyncState>('/admin/schedule') })
 }
 
-/** Who sits in the computer labs at the chosen pair. Runs only when both the floor and the pair are picked. */
-export function useLabsOccupancy(floor: LabsFloor | null, pair: string | null) {
+/** Who sits in the computer labs at the chosen pair. Runs only when the floor, the date and the pair are picked. */
+export function useLabsOccupancy(floor: LabsFloor | null, date: string | null, pair: string | null) {
   return useQuery({
-    queryKey: [...queryKeys.admin, 'labs', floor, pair] as const,
-    queryFn: () => api.get<LabsOccupancy>(`/admin/labs?floor=${floor}&pair=${encodeURIComponent(pair ?? '')}`),
-    enabled: floor !== null && pair !== null,
+    queryKey: labsOccupancyKey(floor, date, pair),
+    queryFn: () => api.get<LabsOccupancy>(`/admin/labs?floor=${floor}&date=${date}&pair=${encodeURIComponent(pair ?? '')}`),
+    enabled: floor !== null && date !== null && pair !== null,
     // The server caches campus answers for 12 hours; there is no point in asking again right away.
     staleTime: 60 * 1000,
+  })
+}
+
+export const labsOccupancyKey = (floor: LabsFloor | null, date: string | null, pair: string | null) =>
+  [...queryKeys.admin, 'labs', floor, date, pair] as const
+
+/** Drops the cached schedule of one room and loads it again from the campus. */
+export function useRefreshLabRoom() {
+  return useMutation({
+    mutationFn: (input: { room: string; date: string; pair: number }) => api.post<LabRoom>('/admin/labs/refresh', input),
   })
 }
 

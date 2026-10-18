@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -110,7 +112,7 @@ func TestFetchRoomWeek(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	week, err := NewClient(teacher, WithClassroomsURL(srv.URL)).FetchRoomWeek(context.Background(), "245/1")
+	week, err := NewClient(teacher, WithClassroomsURL(srv.URL)).FetchRoomWeek(context.Background(), "245/1", msk("12.10.2026", "00:00"))
 	if err != nil {
 		t.Fatalf("FetchRoomWeek() error = %v", err)
 	}
@@ -125,13 +127,61 @@ func TestFetchRoomWeek(t *testing.T) {
 	}
 }
 
+func TestFetchRoomWeekWalksToNextWeek(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		forms []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		mu.Lock()
+		forms = append(forms, r.PostForm.Encode())
+		mu.Unlock()
+		if r.PostForm.Get("next") == "2026-10-12_245/1" {
+			_, _ = w.Write([]byte(readPage(t, "room_next_week.html")))
+			return
+		}
+		_, _ = w.Write([]byte(readPage(t, "room_week.html")))
+	}))
+	defer srv.Close()
+
+	week, err := NewClient(teacher, WithClassroomsURL(srv.URL), WithPause(0)).FetchRoomWeek(context.Background(), "245/1", msk("19.10.2026", "00:00"))
+	if err != nil {
+		t.Fatalf("FetchRoomWeek() error = %v", err)
+	}
+	if !week.Start.Equal(msk("19.10.2026", "00:00")) {
+		t.Errorf("Start = %v, want Monday 19.10.2026", week.Start)
+	}
+	if len(forms) != 2 || !strings.Contains(forms[1], "next=2026-10-12_245%2F1") {
+		t.Errorf("forms = %v, want the search form and then the next-week form", forms)
+	}
+}
+
+func TestFetchRoomWeekTooFar(t *testing.T) {
+	// The site always answers the same next week, so a month ahead can't be reached.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		if r.PostForm.Get("next") != "" {
+			_, _ = w.Write([]byte(readPage(t, "room_next_week.html")))
+			return
+		}
+		_, _ = w.Write([]byte(readPage(t, "room_week.html")))
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(teacher, WithClassroomsURL(srv.URL), WithPause(0)).FetchRoomWeek(context.Background(), "245/1", msk("16.11.2026", "00:00"))
+	if !errors.Is(err, ErrWeekTooFar) {
+		t.Errorf("FetchRoomWeek() error = %v, want ErrWeekTooFar", err)
+	}
+}
+
 func TestFetchRoomWeekFailsOnServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 	}))
 	defer srv.Close()
 
-	if _, err := NewClient(teacher, WithClassroomsURL(srv.URL)).FetchRoomWeek(context.Background(), "245/1"); err == nil {
+	if _, err := NewClient(teacher, WithClassroomsURL(srv.URL)).FetchRoomWeek(context.Background(), "245/1", msk("12.10.2026", "00:00")); err == nil {
 		t.Error("FetchRoomWeek() error = nil, want status 502")
 	}
 }

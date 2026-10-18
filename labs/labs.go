@@ -11,6 +11,16 @@ import (
 // ErrUnknownPair means the pair number is outside the university's timetable.
 var ErrUnknownPair = errors.New("labs: unknown pair number")
 
+// ErrUnknownRoom means the room is not one of the institute's labs.
+var ErrUnknownRoom = errors.New("labs: unknown room")
+
+// ErrDateOutOfRange means the date's week can't be reached on the campus site:
+// only the current week and a few ahead can be paged to.
+var ErrDateOutOfRange = errors.New("labs: the date is out of reach")
+
+// weeksAhead is how many weeks past the current one the campus site is asked for.
+const weeksAhead = 3
+
 // Room is a computer lab; Name is its full campus name with the building, e.g. "245/1".
 type Room struct {
 	Name  string
@@ -66,6 +76,16 @@ func PairAt(now time.Time) int {
 		}
 	}
 	return PairCount
+}
+
+// FindRoom returns the lab by its full campus name, e.g. "245/1".
+func FindRoom(name string) (Room, bool) {
+	for _, room := range Rooms {
+		if room.Name == name {
+			return room, true
+		}
+	}
+	return Room{}, false
 }
 
 // weekStart returns Monday of the week's day, midnight in the university's time zone.

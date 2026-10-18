@@ -2,6 +2,7 @@ package campus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -41,11 +42,42 @@ type RoomLesson struct {
 
 var roomNameRe = regexp.MustCompile(`для аудитории\s+([^\s<]+)`)
 
-// FetchRoomWeek returns the current week of the room's schedule, as the site sees it.
+// ErrWeekTooFar means the requested week can't be reached from the current one:
+// the site only pages week by week, and the client walks at most maxRoomWeekHops forward.
+var ErrWeekTooFar = errors.New("campus: the week is too far")
+
+// maxRoomWeekHops is how many "next week" steps FetchRoomWeek takes: the current week plus three ahead.
+const maxRoomWeekHops = 3
+
+// FetchRoomWeek returns the schedule of the week starting on the given Monday, as the site sees it.
 // The room must be its full name with the building, e.g. "245/1": the site then answers
-// with the schedule right away, without the search step.
-func (c *Client) FetchRoomWeek(ctx context.Context, room string) (*RoomWeek, error) {
-	form := url.Values{"num_aud": {room}, "searchdata": {""}}
+// with the schedule right away, without the search step. Weeks ahead are reached through
+// the site's "next week" button, with the usual pause between requests.
+func (c *Client) FetchRoomWeek(ctx context.Context, room string, weekStart time.Time) (*RoomWeek, error) {
+	week, err := c.fetchRoomWeek(ctx, url.Values{"num_aud": {room}, "searchdata": {""}}, room)
+	if err != nil {
+		return nil, err
+	}
+
+	for hops := 0; week.Start.Before(weekStart) && hops < maxRoomWeekHops; hops++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(c.pause):
+		}
+		// The "next week" button sends Monday of the shown week and the room.
+		week, err = c.fetchRoomWeek(ctx, url.Values{"next": {week.Start.Format("2006-01-02") + "_" + room}}, room)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !week.Start.Equal(weekStart) {
+		return nil, fmt.Errorf("%w: week of %s", ErrWeekTooFar, weekStart.Format("02.01.2006"))
+	}
+	return week, nil
+}
+
+func (c *Client) fetchRoomWeek(ctx context.Context, form url.Values, room string) (*RoomWeek, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.classroomsURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err

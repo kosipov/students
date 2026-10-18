@@ -17,7 +17,7 @@ const fetchConcurrency = 4
 
 // Source loads a room's weekly schedule; *campus.Client implements it.
 type Source interface {
-	FetchRoomWeek(ctx context.Context, room string) (*campus.RoomWeek, error)
+	FetchRoomWeek(ctx context.Context, room string, weekStart time.Time) (*campus.RoomWeek, error)
 }
 
 // RoomStatus is the occupancy of one lab at a pair.
@@ -83,15 +83,35 @@ func (u *UseCase) CurrentPair() int {
 	return PairAt(u.now())
 }
 
-// Occupancy finds who sits in the labs of the floor (0 means all floors) at the pair today.
+// today returns the current day in the university's time zone.
+func (u *UseCase) today() time.Time {
+	now := u.now().In(campus.Location)
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, campus.Location)
+}
+
+// checkDate validates the day and returns it at midnight in the university's time zone:
+// the campus site pages week by week, so only the current week and a few ahead can be shown.
+func (u *UseCase) checkDate(date time.Time) (time.Time, error) {
+	local := date.In(campus.Location)
+	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, campus.Location)
+
+	current := weekStart(u.today())
+	if weekStart(day).Before(current) || weekStart(day).After(current.AddDate(0, 0, 7*weeksAhead)) {
+		return time.Time{}, ErrDateOutOfRange
+	}
+	return day, nil
+}
+
+// Occupancy finds who sits in the labs of the floor (0 means all floors) at the pair of the day.
 // A room that failed to load doesn't fail the others: it is marked in its status.
-func (u *UseCase) Occupancy(ctx context.Context, floor int, pair int) (*Occupancy, error) {
+func (u *UseCase) Occupancy(ctx context.Context, floor int, date time.Time, pair int) (*Occupancy, error) {
 	if pair < 1 || pair > PairCount {
 		return nil, ErrUnknownPair
 	}
-
-	now := u.now().In(campus.Location)
-	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, campus.Location)
+	day, err := u.checkDate(date)
+	if err != nil {
+		return nil, err
+	}
 	startsAt, endsAt := PairBounds(day, pair)
 
 	rooms := make([]Room, 0, len(Rooms))
@@ -111,14 +131,7 @@ func (u *UseCase) Occupancy(ctx context.Context, floor int, pair int) (*Occupanc
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			week, fetchedAt, stale, err := u.roomWeek(ctx, rooms[i].Name, weekStart(day))
-			status := RoomStatus{Room: rooms[i], FetchedAt: fetchedAt, Stale: stale}
-			if err != nil {
-				status.Failed = true
-			} else {
-				status.Lesson = lessonAt(week, day, pair)
-			}
-			statuses[i] = status
+			statuses[i] = u.roomStatus(ctx, rooms[i], day, pair)
 		}(i)
 	}
 	wg.Wait()
@@ -130,6 +143,41 @@ func (u *UseCase) Occupancy(ctx context.Context, floor int, pair int) (*Occupanc
 		EndsAt:   endsAt,
 		Rooms:    statuses,
 	}, nil
+}
+
+// RefreshRoom drops the cached week of the room and loads it again from the campus:
+// the admin's explicit "fetch now" for one room.
+func (u *UseCase) RefreshRoom(ctx context.Context, roomName string, date time.Time, pair int) (*RoomStatus, error) {
+	room, ok := FindRoom(roomName)
+	if !ok {
+		return nil, ErrUnknownRoom
+	}
+	if pair < 1 || pair > PairCount {
+		return nil, ErrUnknownPair
+	}
+	day, err := u.checkDate(date)
+	if err != nil {
+		return nil, err
+	}
+
+	u.mu.Lock()
+	delete(u.cache, roomName+" "+weekStart(day).Format("2006-01-02"))
+	u.mu.Unlock()
+
+	status := u.roomStatus(ctx, room, day, pair)
+	return &status, nil
+}
+
+// roomStatus loads the room's week (from the cache when fresh) and finds the lesson of the pair.
+func (u *UseCase) roomStatus(ctx context.Context, room Room, day time.Time, pair int) RoomStatus {
+	week, fetchedAt, stale, err := u.roomWeek(ctx, room.Name, weekStart(day))
+	status := RoomStatus{Room: room, FetchedAt: fetchedAt, Stale: stale}
+	if err != nil {
+		status.Failed = true
+	} else {
+		status.Lesson = lessonAt(week, day, pair)
+	}
+	return status
 }
 
 // lessonAt finds the lesson occupying the room at the pair of the day; nil means free.
@@ -160,7 +208,7 @@ func (u *UseCase) roomWeek(ctx context.Context, room string, start time.Time) (*
 	u.requests[key] = flight
 	u.mu.Unlock()
 
-	flight.week, flight.err = u.source.FetchRoomWeek(ctx, room)
+	flight.week, flight.err = u.source.FetchRoomWeek(ctx, room, start)
 	flight.fetchedAt = u.now()
 
 	u.mu.Lock()

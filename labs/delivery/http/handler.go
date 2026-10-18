@@ -94,7 +94,35 @@ func parseFloor(raw string) (int, error) {
 	}
 }
 
-// Occupancy answers who sits in the labs: GET /api/admin/labs?floor=2|5|all&pair=now|1..8.
+// parseDate reads a "2006-01-02" day; an empty value means today in the university's time zone.
+func parseDate(raw string, today time.Time) (time.Time, error) {
+	if raw == "" {
+		return today, nil
+	}
+	day, err := time.ParseInLocation("2006-01-02", raw, campus.Location)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("unknown date %q", raw)
+	}
+	return day, nil
+}
+
+func occupancyError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, labs.ErrUnknownPair):
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Пара должна быть now или числом от 1 до 8"})
+	case errors.Is(err, labs.ErrUnknownRoom):
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Неизвестная аудитория"})
+	case errors.Is(err, labs.ErrDateOutOfRange):
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Кампус показывает только текущую неделю и три следующие"})
+	case errors.Is(err, campus.ErrWeekTooFar):
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Кампус показывает только текущую неделю и три следующие"})
+	default:
+		log.Printf("Failed to get labs occupancy: %s", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Что-то пошло не так, попробуйте ещё раз"})
+	}
+}
+
+// Occupancy answers who sits in the labs: GET /api/admin/labs?floor=2|5|all&pair=now|1..8&date=2006-01-02.
 func (h *Handler) Occupancy(c *gin.Context) {
 	floor, err := parseFloor(c.Query("floor"))
 	if err != nil {
@@ -114,17 +142,18 @@ func (h *Handler) Occupancy(c *gin.Context) {
 		}
 	}
 
+	date, err := parseDate(c.Query("date"), time.Now())
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Дата должна быть вида 2006-01-02"})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), occupancyTimeout)
 	defer cancel()
 
-	occupancy, err := h.useCase.Occupancy(ctx, floor, pair)
-	if errors.Is(err, labs.ErrUnknownPair) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Пара должна быть now или числом от 1 до 8"})
-		return
-	}
+	occupancy, err := h.useCase.Occupancy(ctx, floor, date, pair)
 	if err != nil {
-		log.Printf("Failed to get labs occupancy: %s", err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Что-то пошло не так, попробуйте ещё раз"})
+		occupancyError(c, err)
 		return
 	}
 
@@ -146,4 +175,36 @@ func (h *Handler) Occupancy(c *gin.Context) {
 		FetchedAt: oldest,
 		Rooms:     rooms,
 	})
+}
+
+type refreshRequest struct {
+	Room string `json:"room"`
+	Date string `json:"date"`
+	Pair int    `json:"pair"`
+}
+
+// RefreshRoom drops the cached schedule of the room and loads it again from the campus:
+// POST /api/admin/labs/refresh {"room": "245/1", "date": "2006-01-02", "pair": 3}.
+func (h *Handler) RefreshRoom(c *gin.Context) {
+	var request refreshRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Нужны room, date и pair"})
+		return
+	}
+
+	date, err := parseDate(request.Date, time.Now())
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Дата должна быть вида 2006-01-02"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), occupancyTimeout)
+	defer cancel()
+
+	status, err := h.useCase.RefreshRoom(ctx, request.Room, date, request.Pair)
+	if err != nil {
+		occupancyError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toRoomStatus(*status))
 }
