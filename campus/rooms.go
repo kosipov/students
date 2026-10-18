@@ -116,7 +116,9 @@ func ParseRoomWeek(page string, room string) (*RoomWeek, error) {
 		return nil, ErrUnexpectedPage
 	}
 	found := strings.TrimSpace(html.UnescapeString(name[1]))
-	if found != room {
+	// The site echoes the room's name as entered in its database, punctuation included:
+	// 236 lives there as "236/1." with a trailing dot.
+	if strings.TrimSuffix(found, ".") != room {
 		return nil, fmt.Errorf("%w: schedule of %q instead of %q", ErrUnexpectedPage, found, room)
 	}
 
@@ -125,7 +127,7 @@ func ParseRoomWeek(page string, room string) (*RoomWeek, error) {
 		return nil, fmt.Errorf("%w: week starts on %q", ErrUnexpectedPage, week[1])
 	}
 
-	result := &RoomWeek{Room: found, Start: start}
+	result := &RoomWeek{Room: strings.TrimSuffix(found, "."), Start: start}
 	if updated := updatedRe.FindStringSubmatch(page); updated != nil {
 		if t, err := time.ParseInLocation("02.01.2006 15:04:05", updated[1], Location); err == nil {
 			result.Updated = t

@@ -185,3 +185,17 @@ func TestFetchRoomWeekFailsOnServerError(t *testing.T) {
 		t.Error("FetchRoomWeek() error = nil, want status 502")
 	}
 }
+
+// Room 236 is entered in the campus database as "236/1." with a trailing dot; the page echoes it as is.
+func TestParseRoomWeekWithDottedName(t *testing.T) {
+	week, err := ParseRoomWeek(readPage(t, "room_week_dotted.html"), "236/1")
+	if err != nil {
+		t.Fatalf("ParseRoomWeek() error = %v", err)
+	}
+	if week.Room != "236/1" {
+		t.Errorf("Room = %q, want the canonical 236/1", week.Room)
+	}
+	if len(week.Lessons) == 0 {
+		t.Error("no lessons parsed")
+	}
+}
