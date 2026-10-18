@@ -241,3 +241,40 @@ export interface ImportResult {
   /** How many names the source had (the pasted list or the campus roster). */
   found: number
 }
+
+// Labs occupancy (admin only)
+
+export type LabsFloor = '2' | '5' | 'all'
+
+export interface LabLesson {
+  number: number
+  title: string
+  kind: string
+  teacher: string
+  groups: string
+  startsAt: string
+  endsAt: string
+}
+
+export interface LabRoom {
+  /** The full campus name with the building, e.g. "245/1". */
+  room: string
+  floor: number
+  busy: boolean
+  lesson: LabLesson | null
+  fetchedAt: string | null
+  /** The campus didn't answer; an older copy is shown. */
+  stale: boolean
+  /** The campus didn't answer and there is nothing to show. */
+  failed: boolean
+}
+
+export interface LabsOccupancy {
+  date: string
+  pair: number
+  startsAt: string
+  endsAt: string
+  /** The oldest campus answer among the rooms; null when nothing loaded at all. */
+  fetchedAt: string | null
+  rooms: LabRoom[]
+}

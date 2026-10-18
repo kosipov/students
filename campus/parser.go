@@ -92,14 +92,14 @@ func ParseWeek(page string, teacher string) (*Week, error) {
 	return result, nil
 }
 
-// parseTable walks the cells in order: the markup has no opening <tr> for most rows, so rows can't be trusted.
+// walkTable calls visit for every lesson cell of the week with its number and start time.
+// The cells are walked in order: the markup has no opening <tr> for most rows, so rows can't be trusted.
 // A day starts with a "dayofweek" cell holding the date, followed by triples of cells: number, start time, lesson.
-func parseTable(table string, weekStart time.Time) ([]Lesson, error) {
+func walkTable(table string, weekStart time.Time, visit func(number int, startsAt time.Time, cell string)) error {
 	weekEnd := weekStart.AddDate(0, 0, 7)
 	var (
-		lessons []Lesson
-		day     time.Time
-		cells   = cellRe.FindAllStringSubmatch(table, -1)
+		day   time.Time
+		cells = cellRe.FindAllStringSubmatch(table, -1)
 	)
 
 	for i := 0; i < len(cells); {
@@ -107,11 +107,11 @@ func parseTable(table string, weekStart time.Time) ([]Lesson, error) {
 		if strings.Contains(attrs, "dayofweek") {
 			date := dayDateRe.FindStringSubmatch(content)
 			if date == nil {
-				return nil, fmt.Errorf("%w: day without date %q", ErrUnexpectedPage, content)
+				return fmt.Errorf("%w: day without date %q", ErrUnexpectedPage, content)
 			}
 			parsed, err := time.ParseInLocation("02.01.2006", date[1], Location)
 			if err != nil || parsed.Before(weekStart) || !parsed.Before(weekEnd) {
-				return nil, fmt.Errorf("%w: day %q outside the week", ErrUnexpectedPage, date[1])
+				return fmt.Errorf("%w: day %q outside the week", ErrUnexpectedPage, date[1])
 			}
 			day = parsed
 			i++
@@ -119,28 +119,36 @@ func parseTable(table string, weekStart time.Time) ([]Lesson, error) {
 		}
 
 		if day.IsZero() || i+2 >= len(cells) {
-			return nil, fmt.Errorf("%w: lesson cells without a day", ErrUnexpectedPage)
+			return fmt.Errorf("%w: lesson cells without a day", ErrUnexpectedPage)
 		}
 		number, err := strconv.Atoi(strings.TrimSpace(cells[i][2]))
 		if err != nil {
-			return nil, fmt.Errorf("%w: lesson number %q", ErrUnexpectedPage, cells[i][2])
+			return fmt.Errorf("%w: lesson number %q", ErrUnexpectedPage, cells[i][2])
 		}
 		clock := timeRe.FindStringSubmatch(strings.TrimSpace(cells[i+1][2]))
 		if clock == nil {
-			return nil, fmt.Errorf("%w: lesson time %q", ErrUnexpectedPage, cells[i+1][2])
+			return fmt.Errorf("%w: lesson time %q", ErrUnexpectedPage, cells[i+1][2])
 		}
 		hour, _ := strconv.Atoi(clock[1])
 		minute, _ := strconv.Atoi(clock[2])
 
-		if lesson, ok := parseLesson(cells[i+2][2]); ok {
-			lesson.Number = number
-			lesson.StartsAt = time.Date(day.Year(), day.Month(), day.Day(), hour, minute, 0, 0, Location)
-			lesson.EndsAt = lesson.StartsAt.Add(LessonDuration)
-			lessons = append(lessons, lesson)
-		}
+		visit(number, time.Date(day.Year(), day.Month(), day.Day(), hour, minute, 0, 0, Location), cells[i+2][2])
 		i += 3
 	}
-	return lessons, nil
+	return nil
+}
+
+func parseTable(table string, weekStart time.Time) ([]Lesson, error) {
+	var lessons []Lesson
+	err := walkTable(table, weekStart, func(number int, startsAt time.Time, cell string) {
+		if lesson, ok := parseLesson(cell); ok {
+			lesson.Number = number
+			lesson.StartsAt = startsAt
+			lesson.EndsAt = startsAt.Add(LessonDuration)
+			lessons = append(lessons, lesson)
+		}
+	})
+	return lessons, err
 }
 
 // parseLesson reads "Title (kind), 245/1<br> 1435-ИРо". An empty cell means no lesson.

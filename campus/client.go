@@ -1,4 +1,4 @@
-// Package campus reads a teacher's schedule and group rosters from campus.syktsu.ru. The site has
+// Package campus reads a teacher's schedule, room schedules and group rosters from campus.syktsu.ru. The site has
 // no API, so the client submits the same forms as the site's pages in a browser and parses the answers.
 package campus
 
@@ -24,11 +24,12 @@ const (
 )
 
 type Client struct {
-	httpClient  *http.Client
-	scheduleURL string
-	studentsURL string
-	teacher     string
-	pause       time.Duration
+	httpClient    *http.Client
+	scheduleURL   string
+	studentsURL   string
+	classroomsURL string
+	teacher       string
+	pause         time.Duration
 	// headers are sent with every request, e.g. the secret of the relay.
 	headers map[string]string
 }
@@ -45,6 +46,11 @@ func WithStudentsURL(studentsURL string) Option {
 	return func(c *Client) { c.studentsURL = studentsURL }
 }
 
+// WithClassroomsURL overrides the room schedule page, e.g. with a test server.
+func WithClassroomsURL(classroomsURL string) Option {
+	return func(c *Client) { c.classroomsURL = classroomsURL }
+}
+
 // WithRelay asks the campus pages through a relay (a Yandex Cloud function) instead of asking
 // the university directly: the relay runs where the site answers and forwards the same form.
 // The secret keeps strangers from using the relay's public address.
@@ -52,6 +58,7 @@ func WithRelay(relayURL string, secret string) Option {
 	return func(c *Client) {
 		c.scheduleURL = relayURL
 		c.studentsURL = relayURL
+		c.classroomsURL = relayURL
 		c.headers["X-Relay-Secret"] = secret
 	}
 }
@@ -90,12 +97,13 @@ func WithPause(pause time.Duration) Option {
 
 func NewClient(teacher string, opts ...Option) *Client {
 	c := &Client{
-		httpClient:  &http.Client{Timeout: requestTimeout},
-		scheduleURL: DefaultScheduleURL,
-		studentsURL: DefaultStudentsURL,
-		teacher:     teacher,
-		pause:       requestPause,
-		headers:     map[string]string{},
+		httpClient:    &http.Client{Timeout: requestTimeout},
+		scheduleURL:   DefaultScheduleURL,
+		studentsURL:   DefaultStudentsURL,
+		classroomsURL: DefaultClassroomsURL,
+		teacher:       teacher,
+		pause:         requestPause,
+		headers:       map[string]string{},
 	}
 	for _, opt := range opts {
 		opt(c)

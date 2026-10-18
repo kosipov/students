@@ -3,6 +3,7 @@ import { AdminLayout, RequireAdmin } from './layouts/AdminLayout'
 import { StudentLayout } from './layouts/StudentLayout'
 import { GroupPage } from './pages/admin/GroupPage'
 import { GroupsPage } from './pages/admin/GroupsPage'
+import { LabsPage } from './pages/admin/LabsPage'
 import { OverviewPage } from './pages/admin/OverviewPage'
 import { ProgressPage } from './pages/admin/ProgressPage'
 import { SubjectPage as AdminSubjectPage } from './pages/admin/SubjectPage'
@@ -41,6 +42,7 @@ export function App() {
 
       <Route path="admin" element={<AdminLayout />}>
         <Route index element={<OverviewPage />} />
+        <Route path="labs" element={<LabsPage />} />
         <Route path="groups" element={<GroupsPage />} />
         <Route path="groups/:groupId" element={<GroupPage />} />
         <Route path="groups/:groupId/progress" element={<ProgressPage />} />

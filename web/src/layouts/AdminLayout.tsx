@@ -25,9 +25,10 @@ export function useRememberAdminContext(groupId: number | undefined, subjectId?:
   }, [shell, groupId, subjectId])
 }
 
-type Section = 'overview' | 'groups' | 'subjects' | 'tasks' | 'progress'
+type Section = 'overview' | 'groups' | 'subjects' | 'tasks' | 'progress' | 'labs'
 
 function currentSection(pathname: string): Section {
+  if (pathname.startsWith('/admin/labs')) return 'labs'
   if (pathname.includes('/progress')) return 'progress'
   if (pathname.startsWith('/admin/subjects')) return 'tasks'
   if (/^\/admin\/groups\/\d+/.test(pathname)) return 'subjects'
@@ -72,6 +73,7 @@ export function AdminLayout() {
     { key: 'subjects', label: 'Предметы', to: context.groupId ? `/admin/groups/${context.groupId}` : '/admin/groups' },
     { key: 'tasks', label: 'Задания', to: context.subjectId ? `/admin/subjects/${context.subjectId}` : context.groupId ? `/admin/groups/${context.groupId}` : '/admin/groups' },
     { key: 'progress', label: 'Успеваемость', to: context.groupId ? `/admin/groups/${context.groupId}/progress` : '/admin/groups' },
+    { key: 'labs', label: 'Лаборатории', to: '/admin/labs' },
   ]
 
   return (

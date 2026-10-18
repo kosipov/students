@@ -11,6 +11,8 @@ import type {
   Catalog,
   GroupInput,
   ImportResult,
+  LabsFloor,
+  LabsOccupancy,
   MarkStatus,
   Overview,
   Presence,
@@ -141,6 +143,17 @@ export function usePreviewTask(id: number) {
 
 export function useScheduleSync() {
   return useQuery({ queryKey: queryKeys.scheduleSync, queryFn: () => api.get<ScheduleSyncState>('/admin/schedule') })
+}
+
+/** Who sits in the computer labs at the chosen pair. Runs only when both the floor and the pair are picked. */
+export function useLabsOccupancy(floor: LabsFloor | null, pair: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.admin, 'labs', floor, pair] as const,
+    queryFn: () => api.get<LabsOccupancy>(`/admin/labs?floor=${floor}&pair=${encodeURIComponent(pair ?? '')}`),
+    enabled: floor !== null && pair !== null,
+    // The server caches campus answers for 12 hours; there is no point in asking again right away.
+    staleTime: 60 * 1000,
+  })
 }
 
 export function useSyncScheduleNow() {

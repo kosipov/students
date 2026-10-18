@@ -27,6 +27,8 @@ import (
 	educationalhttp "github.com/kosipov/students/educational/delivery/http"
 	educationalgorm "github.com/kosipov/students/educational/repository/gorm"
 	educationalusecase "github.com/kosipov/students/educational/usecase"
+	"github.com/kosipov/students/labs"
+	labshttp "github.com/kosipov/students/labs/delivery/http"
 	progresshttp "github.com/kosipov/students/progress/delivery/http"
 	progressgorm "github.com/kosipov/students/progress/repository/gorm"
 	progressusecase "github.com/kosipov/students/progress/usecase"
@@ -45,6 +47,7 @@ type App struct {
 	subjectUC  educational.CommonSubjectUseCase
 	scheduleUC *scheduleusecase.UseCase
 	progressUC *progressusecase.UseCase
+	labsUC     *labs.UseCase
 	// syncSchedule is off when no teacher is configured.
 	syncSchedule         bool
 	scheduleSyncInterval time.Duration
@@ -80,6 +83,7 @@ func NewApp() *App {
 			groupRepo),
 		subjectUC:  educationalusecase.NewSubjectUseCase(subjectRepo, onedrive.NewClient()),
 		progressUC: progressusecase.NewUseCase(progressgorm.NewRepository(db), campusClient),
+		labsUC:     labs.NewUseCase(campusClient),
 	}
 }
 
@@ -107,6 +111,7 @@ func (a *App) Run(port string) error {
 	educationalhttp.RegisterHTTPEndpoints(api, admin, a.subjectUC, a.groupUC)
 	schedulehttp.RegisterHTTPEndpoints(api, admin, a.scheduleUC)
 	progresshttp.RegisterHTTPEndpoints(api, admin, a.progressUC, a.progressUC)
+	labshttp.RegisterHTTPEndpoints(admin, a.labsUC)
 
 	registerSPA(router, "web/dist")
 

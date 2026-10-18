@@ -4,18 +4,19 @@
 // instead. It replaces the Yandex Cloud Function (deploy/campus-relay/index.py) and is built
 // to run as a tiny container, e.g. on Cloud.ru Evolution Container Apps free tier.
 //
-// It is not an open proxy: it only posts the given form to the two campus addresses,
+// It is not an open proxy: it only posts the given form to the campus addresses,
 // and only for callers that know RELAY_SECRET.
 //
 // Environment variables:
 //
-//	RELAY_SECRET         - the same value as CAMPUS_RELAY_SECRET of the site; required.
-//	CAMPUS_URL           - the schedule page; defaults to the teacher schedule of campus.syktsu.ru.
-//	CAMPUS_STUDENTS_URL  - the group roster form; defaults to get_student.php of campus.syktsu.ru.
-//	PORT                 - the port to listen on; defaults to 8080.
+//	RELAY_SECRET          - the same value as CAMPUS_RELAY_SECRET of the site; required.
+//	CAMPUS_URL            - the schedule page; defaults to the teacher schedule of campus.syktsu.ru.
+//	CAMPUS_STUDENTS_URL   - the group roster form; defaults to get_student.php of campus.syktsu.ru.
+//	CAMPUS_CLASSROOM_URL  - the room schedule page; defaults to the classroom schedule of campus.syktsu.ru.
+//	PORT                  - the port to listen on; defaults to 8080.
 //
 // The caller picks the address with the X-Relay-Target header: "students" for the roster,
-// anything else (or none) for the schedule.
+// "classroom" for a room's schedule, anything else (or none) for the teacher's schedule.
 package main
 
 import (
@@ -28,8 +29,9 @@ import (
 )
 
 const (
-	defaultScheduleURL = "https://campus.syktsu.ru/schedule/teacher/"
-	defaultStudentsURL = "https://campus.syktsu.ru/php_files/get_student.php"
+	defaultScheduleURL  = "https://campus.syktsu.ru/schedule/teacher/"
+	defaultStudentsURL  = "https://campus.syktsu.ru/php_files/get_student.php"
+	defaultClassroomURL = "https://campus.syktsu.ru/schedule/classroom/"
 	// userAgent is a regular desktop browser's, so requests don't point to the site that makes them.
 	userAgent      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 	maxRequestBody = 64 << 10
@@ -43,8 +45,9 @@ func main() {
 		log.Fatal("RELAY_SECRET is required")
 	}
 	targets := map[string]string{
-		"schedule": envOr("CAMPUS_URL", defaultScheduleURL),
-		"students": envOr("CAMPUS_STUDENTS_URL", defaultStudentsURL),
+		"schedule":  envOr("CAMPUS_URL", defaultScheduleURL),
+		"students":  envOr("CAMPUS_STUDENTS_URL", defaultStudentsURL),
+		"classroom": envOr("CAMPUS_CLASSROOM_URL", defaultClassroomURL),
 	}
 	client := &http.Client{Timeout: campusTimeout}
 

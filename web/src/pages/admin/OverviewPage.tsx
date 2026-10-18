@@ -153,6 +153,20 @@ export function OverviewPage() {
       </div>
 
       <ScheduleSyncPanel />
+
+      <section className="blueprint panel ri delay-3" aria-labelledby="labs-title">
+        <Corners />
+        <h3 id="labs-title">Лаборатории</h3>
+        <div className="panel-row">
+          <span>
+            <span className="panel-row-title">Занятость компьютерных лабораторий</span>
+            <span className="panel-row-sub">2 этаж: 236–251 · 5 этаж: 502–519 · данные campus.syktsu.ru, кэш до 12 часов</span>
+          </span>
+          <Link to="/admin/labs" className="btn btn-secondary">
+            Посмотреть лаборатории
+          </Link>
+        </div>
+      </section>
     </div>
   )
 }
