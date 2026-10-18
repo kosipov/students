@@ -1,0 +1,34 @@
+---
+- name: Клонировать репозиторий
+  ansible.builtin.git:
+    repo: "{{ github_repo_prefix }}{{ student_repo_path }}"
+    dest: /opt/src/students
+    version: main
+    single_branch: true
+    accept_hostkey: true
+    force: true
+
+- name: Каталог проекта
+  ansible.builtin.file:
+    path: /opt/students
+    state: directory
+    mode: "0755"
+
+- name: .env
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/students/.env
+    mode: "0600"
+
+- name: docker-compose students
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /opt/students/docker-compose.yml
+    mode: "0644"
+
+- name: Собрать и запустить
+  community.docker.docker_compose_v2:
+    project_src: /opt/students
+    pull: missing
+    build: always
+    state: present

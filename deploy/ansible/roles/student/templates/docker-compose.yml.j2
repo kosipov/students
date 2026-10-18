@@ -1,0 +1,25 @@
+services:
+  students:
+    build: /opt/src/students
+    image: students:latest
+    container_name: students
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - {{ proxy_network }}
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "{{ proxy_network }}"
+      traefik.http.routers.students-web.rule: "Host(`student.{{ base_domain }}`)"
+      traefik.http.routers.students-web.entrypoints: web
+      traefik.http.routers.students-web.middlewares: redirect-to-https@file
+      traefik.http.routers.students-web.service: students-web
+      traefik.http.services.students-web.loadbalancer.server.port: "8080"
+      traefik.http.routers.students-websecure.rule: "Host(`student.{{ base_domain }}`)"
+      traefik.http.routers.students-websecure.entrypoints: websecure
+      traefik.http.routers.students-websecure.service: students-web
+      traefik.http.routers.students-websecure.tls.certresolver: letsencrypt
+
+networks:
+  {{ proxy_network }}:
+    external: true

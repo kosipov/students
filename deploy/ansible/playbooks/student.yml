@@ -1,0 +1,18 @@
+---
+# Пример: минимальный плейбук для выкатки сайта. В боевом репозитории сервера
+# (kosipov_ru_server) роль student вызывается из общего site.yml с тегом student:
+#
+#   - name: Инфраструктура kosipov.ru
+#     hosts: server
+#     roles:
+#       - role: student
+#         tags: [student]
+#
+# и деплой делается командой:
+#
+#   ansible-playbook playbooks/site.yml --tags student
+- name: Сайт students
+  hosts: server
+  become: true
+  roles:
+    - role: student

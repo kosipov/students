@@ -53,7 +53,7 @@ function ScheduleSyncPanel() {
                 Последняя попытка {data.checkedAt ? formatSyncTime(data.checkedAt) : ''} не удалась: {data.error}
               </span>
             ) : (
-              <span className="panel-row-sub">Копируется с campus.syktsu.ru каждые 30 минут</span>
+              <span className="panel-row-sub">Копируется с campus.syktsu.ru каждые 6 часов</span>
             )}
             {data.stale && data.succeededAt && <span className="panel-row-problem">Давно не обновлялось — статус на сайте может быть неточным</span>}
           </span>
