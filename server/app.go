@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -151,16 +152,31 @@ func (a *App) Run(port string) error {
 }
 
 // campusClientOptions reads how to reach the university's site when it doesn't answer the server's address:
-// through a relay (CAMPUS_RELAY_URL, CAMPUS_RELAY_SECRET) or a proxy (CAMPUS_PROXY_URL). Env variables,
-// not config.yml, because they hold secrets.
+// through a relay or a proxy (CAMPUS_PROXY_URL). The relay is chosen by campus.relay in config.yml
+// ("yandex" by default, or "cloudru"); its address comes from CAMPUS_RELAY_URL_<PROVIDER>.
+// CAMPUS_RELAY_URL, when set, is an explicit override for a relay at any other address.
+// Env variables, not config.yml, hold the addresses and the secret, because the secret is among them.
 func campusClientOptions() []campus.Option {
 	var options []campus.Option
 
-	if relayURL := os.Getenv("CAMPUS_RELAY_URL"); relayURL != "" {
+	relayURL := os.Getenv("CAMPUS_RELAY_URL")
+	if relayURL == "" {
+		provider := viper.GetString("campus.relay")
+		if provider == "" {
+			provider = "yandex"
+		}
+		envName := "CAMPUS_RELAY_URL_" + strings.ToUpper(provider)
+		relayURL = os.Getenv(envName)
+		if relayURL == "" {
+			log.Printf("Campus relay %q is chosen in config.yml, but %s is empty: the campus will be asked directly", provider, envName)
+		}
+	}
+
+	if relayURL != "" {
 		secret := os.Getenv("CAMPUS_RELAY_SECRET")
 		if secret == "" {
 			// Without the secret the relay would answer nobody, and the schedule would never load.
-			log.Fatalf("CAMPUS_RELAY_URL is set without CAMPUS_RELAY_SECRET")
+			log.Fatalf("A campus relay is set without CAMPUS_RELAY_SECRET")
 		}
 		options = append(options, campus.WithRelay(relayURL, secret))
 		log.Printf("Campus schedule is requested through relay %s", relayURL)

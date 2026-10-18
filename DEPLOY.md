@@ -33,10 +33,20 @@ docker-сети `web` и наружу портом не опубликовано
 | `MYSQL_HOST` | да | хост общего MySQL-контейнера (`mysql`) |
 | `MYSQL_USER` / `MYSQL_PASSWORD` | да | доступ к базе |
 | `MYSQL_DBNAME` | да | `students` |
-| `CAMPUS_RELAY_URL` / `CAMPUS_RELAY_SECRET` | да (для кампуса) | адрес и секрет релея, см. ниже |
+| `CAMPUS_RELAY_URL_YANDEX` | да (для кампуса) | URL функции в Yandex Cloud |
+| `CAMPUS_RELAY_URL_CLOUDRU` | да (для кампуса) | URL контейнера в Cloud.ru Evolution |
+| `CAMPUS_RELAY_SECRET` | да (для кампуса) | общий секрет обоих релеев |
+| `CAMPUS_RELAY_URL` | нет | явный адрес релея: перекрывает выбор из `campus.relay`, для отладки |
 | `CAMPUS_PROXY_URL` | нет | альтернатива релею: `http://user:pass@host:3128` или `socks5://…` |
 | `GIN_MODE` | нет | в образе по умолчанию `release` |
 | `PORT` | нет | порт HTTP-сервера, по умолчанию `8080` |
+
+Какой из двух релеев используется, выбирает `campus.relay` в `config/config.yml`:
+`yandex` (по умолчанию) или `cloudru`. Адрес выбранного релея приложение берёт из
+соответствующей переменной `CAMPUS_RELAY_URL_<ПРОВАЙДЕР>`; переключение — правка
+конфига и передеплой. Если переменная выбранного провайдера пуста, приложение пишет
+предупреждение в лог и ходит в кампус напрямую (с сервера это не работает — ошибка
+будет видна в «Обзоре»).
 
 Если обязательная переменная не задана, приложение падает при старте с
 `Invalid type assertion with key <NAME>`.
@@ -103,12 +113,22 @@ docker exec -it students ./create-admin -username admin
 
 Кампус не отвечает на запросы с адреса сервера (в логе — `context deadline
 exceeded` при каждой попытке), поэтому сайт ходит через посредника с российским
-адресом.
+адресом. Посредников развёрнуто два — контейнер на Cloud.ru и функция в Yandex
+Cloud; активный выбирается `campus.relay` в `config/config.yml` (по умолчанию
+`yandex`), адреса обоих лежат в переменных окружения. Секрет у них общий.
 
-**Основной способ — контейнер на Cloud.ru Evolution Container Apps.**
-Код: [`deploy/campus-relay/main.go`](deploy/campus-relay/main.go) + `Dockerfile`
-(образ ~10 МБ). Платформа открыта физлицам (console.cloud.ru, в т.ч. по Сбер ID),
-бесплатного месячного лимита Container Apps хватает с огромным запасом.
+**Релей по умолчанию — функция в Yandex Cloud.** Код —
+[`deploy/campus-relay/index.py`](deploy/campus-relay/index.py): Python 3.12,
+точка входа `index.handler`, таймаут 30 с, память 128 МБ, переменная
+`RELAY_SECRET`, публичный доступ. URL функции задаётся в ansible-переменной
+`campus_relay_url_yandex` и попадает в `CAMPUS_RELAY_URL_YANDEX`. Бесплатного
+уровня (1 млн вызовов в месяц) хватает с запасом.
+
+**Второй релей — контейнер на Cloud.ru Evolution Container Apps** (включается
+`campus.relay: cloudru`). Код: [`deploy/campus-relay/main.go`](deploy/campus-relay/main.go)
++ `Dockerfile` (образ ~10 МБ). Платформа открыта физлицам (console.cloud.ru,
+в т.ч. по Сбер ID), бесплатного месячного лимита Container Apps хватает с
+огромным запасом.
 
 1. Образ собирается GitHub Actions
    ([`.github/workflows/campus-relay.yml`](.github/workflows/campus-relay.yml))
@@ -123,8 +143,9 @@ exceeded` при каждой попытке), поэтому сайт ходи�
    тянет свежий `latest` сам; если контейнер был тёплым, пересоздайте ревизию
    после обновления образа.
 3. Публичный URL приложения задан в ansible-переменной `campus_relay_url`
-   (group_vars серверного репозитория), секрет — в vault
-   (`vault_campus_relay_secret`); после смены — прогнать роль `student`.
+   (group_vars серверного репозитория) и попадает в `CAMPUS_RELAY_URL_CLOUDRU`,
+   секрет — в vault (`vault_campus_relay_secret`); после смены — прогнать роль
+   `student`.
 4. Проверка:
 
    ```sh
@@ -132,12 +153,6 @@ exceeded` при каждой попытке), поэтому сайт ходи�
    curl -X POST -H 'X-Relay-Secret: …' -H 'X-Relay-Target: classroom' \
         --data-urlencode 'num_aud=245/1' --data-urlencode 'searchdata=' <URL>/               # расписание аудитории
    ```
-
-**Запасной способ — функция в Yandex Cloud.** Тот же протокол, код —
-[`deploy/campus-relay/index.py`](deploy/campus-relay/index.py): Python 3.12,
-точка входа `index.handler`, таймаут 30 с, память 128 МБ, переменная
-`RELAY_SECRET`, публичный доступ. URL функции подставляется в `CAMPUS_RELAY_URL`.
-Бесплатного уровня (1 млн вызовов в месяц) хватает с запасом.
 
 Замечания по обоим вариантам:
 

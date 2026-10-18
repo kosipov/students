@@ -19,8 +19,9 @@
 |---|---|---|
 | `mysql_container` | vars | хост общего MySQL-контейнера |
 | `vault_students_db_user` / `vault_students_db_password` | vault | доступ к базе |
-| `campus_relay_url` | vars | публичный URL релея кампуса (Cloud.ru) |
-| `vault_campus_relay_secret` | vault | секрет релея |
+| `campus_relay_url` | vars | публичный URL релея кампуса в Cloud.ru (`CAMPUS_RELAY_URL_CLOUDRU`) |
+| `campus_relay_url_yandex` | vars | URL функции в Yandex Cloud (`CAMPUS_RELAY_URL_YANDEX`) |
+| `vault_campus_relay_secret` | vault | секрет релея (общий для обоих) |
 | `proxy_network` | vars | общая docker-сеть с Traefik |
 | `base_domain` | vars | домен (`student.{{ base_domain }}`) |
 | `github_repo_prefix` / `student_repo_path` | vars | адрес репозитория (с токеном для приватного) |
